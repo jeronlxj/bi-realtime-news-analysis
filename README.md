@@ -65,7 +65,8 @@ To run the application, follow these steps:
      ```
    - Start Flume locally
      ```
-     flume-ng agent --conf ./api/src/flume --conf-file ./api/src/flume/flume.conf --name agent -Dflume.root.logger=INFO,console
+     $env:JAVA_OPTS="-Dflume.root.logger=INFO,console"
+     flume-ng agent -n agent -conf ./api/src/flume -conf-file ./api/src/flume/flume.conf
      ```
 
 ## Contributing
