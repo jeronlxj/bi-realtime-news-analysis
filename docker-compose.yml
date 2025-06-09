@@ -1,0 +1,80 @@
+version: '3.8'
+
+services:
+  flume:
+    image: apache/flume:1.9.0
+    depends_on:
+      - kafka
+    volumes:
+      - ./api/src/flume/flume.conf:/opt/flume/conf/flume.conf
+      - ./api/src/simulation/exposure_logs.json:/opt/flume/exposure_logs.json
+    command: >
+      bash -c "flume-ng agent --conf /opt/flume/conf --conf-file /opt/flume/conf/flume.conf --name agent -Dflume.root.logger=INFO,console"
+    environment:
+      - JAVA_OPTS=-Xms256m -Xmx512m
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+    ports:
+      - "2181:2181"
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: newsuser
+      POSTGRES_PASSWORD: newspass
+      POSTGRES_DB: newsdb
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  spark:
+    image: bitnami/spark:3
+    ports:
+      - "8080:8080"
+    environment:
+      - SPARK_MODE=master
+
+  spark-worker:
+    image: bitnami/spark:3
+    depends_on:
+      - spark
+    environment:
+      - SPARK_MODE=worker
+      - SPARK_MASTER_URL=spark://spark:7077
+
+  backend:
+    build: ./api
+    depends_on:
+      - kafka
+      - postgres
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./api:/app
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
+
+volumes:
+  pgdata:

@@ -1,0 +1,26 @@
+{
+  "name": "realtime-news-bi-analysis-frontend",
+  "version": "1.0.0",
+  "description": "Frontend application for the Real-Time Dynamic Change Analysis System for News Topics.",
+  "main": "src/App.js",
+  "scripts": {
+    "start": "react-scripts start",
+    "build": "react-scripts build",
+    "test": "react-scripts test",
+    "eject": "react-scripts eject"
+  },
+  "dependencies": {
+    "react": "^17.0.2",
+    "react-dom": "^17.0.2",
+    "react-scripts": "4.0.3",
+    "axios": "^0.21.1",
+    "chart.js": "^2.9.4",
+    "react-chartjs-2": "^2.11.1"
+  },
+  "devDependencies": {
+    "eslint": "^7.14.0",
+    "eslint-plugin-react": "^7.27.0"
+  },
+  "homepage": "http://localhost:3000",
+  "license": "MIT"
+}
