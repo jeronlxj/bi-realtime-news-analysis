@@ -1,17 +1,17 @@
-version: '3.8'
+# version: '3.8'
 
 services:
-  flume:
-    image: apache/flume:1.9.0
-    depends_on:
-      - kafka
-    volumes:
-      - ./api/src/flume/flume.conf:/opt/flume/conf/flume.conf
-      - ./api/src/simulation/exposure_logs.json:/opt/flume/exposure_logs.json
-    command: >
-      bash -c "flume-ng agent --conf /opt/flume/conf --conf-file /opt/flume/conf/flume.conf --name agent -Dflume.root.logger=INFO,console"
-    environment:
-      - JAVA_OPTS=-Xms256m -Xmx512m
+  # flume:
+  #   image: harisekhon/flume
+  #   depends_on:
+  #     - kafka
+  #   volumes:
+  #     - ./api/src/flume/flume.conf:/opt/flume/conf/flume.conf
+  #     - ./api/src/simulation/exposure_logs.json:/opt/flume/exposure_logs.json
+  #   command: >
+  #     bash -c "flume-ng agent --conf /opt/flume/conf --conf-file /opt/flume/conf/flume.conf --name agent -Dflume.root.logger=INFO,console"
+  #   environment:
+  #     - JAVA_OPTS=-Xms256m -Xmx512m
 
   zookeeper:
     image: confluentinc/cp-zookeeper:7.5.0

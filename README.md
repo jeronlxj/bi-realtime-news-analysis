@@ -63,6 +63,10 @@ To run the application, follow these steps:
      ```
      docker-compose up
      ```
+   - Start Flume locally
+     ```
+     flume-ng agent --conf ./api/src/flume --conf-file ./api/src/flume/flume.conf --name agent -Dflume.root.logger=INFO,console
+     ```
 
 ## Contributing
 
