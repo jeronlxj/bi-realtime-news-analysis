@@ -67,7 +67,31 @@ To run the application, follow these steps:
      ```
      $env:JAVA_OPTS="-Dflume.root.logger=INFO,console"
      flume-ng agent -n agent -conf ./api/src/flume -conf-file ./api/src/flume/flume.conf
+
+   - Start the log generator/ simulator
      ```
+     cd api\src; python
+     from simulation.simulator import NewsSimulator
+     simulator = NewsSimulator()
+     simulator.generate_continuous_logs()
+     ```
+Flume will:
+-Monitor the logs directory
+-Pick up new log files
+-Send them to Kafka topic 'news_exposure_logs'
+
+The ETL pipeline will:
+-Consume messages from Kafka
+-Process and enrich the logs
+-Store them in PostgreSQL
+
+You can verify the flow by:
+-Checking Kafka topics: kafka-topics.sh --list --bootstrap-server localhost:9092
+-Viewing PostgreSQL data: Connect to DB and query the tables
+  ```
+  docker-compose exec postgres psql -U newsuser -d newsdb
+  ```
+-Monitoring Flume metrics: Through the Flume metrics endpoint
 
 ## Contributing
 

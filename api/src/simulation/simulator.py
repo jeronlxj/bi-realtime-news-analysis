@@ -2,7 +2,7 @@ from datetime import datetime, timedelta
 import random
 import json
 import pandas as pd
-import os
+import os, time
 from typing import List, Dict
 
 class NewsSimulator:
@@ -23,18 +23,18 @@ class NewsSimulator:
                 size_mb = os.path.getsize(file_path) / (1024 * 1024)
                 print(f"Found {os.path.basename(file_path)} (Size: {size_mb:.2f} MB)")
             
-            # Load news data
-            print("\nLoading news data...")
-            self.news_df = pd.read_csv(self.news_file, sep='\t')
-            print(f"Loaded {len(self.news_df)} news articles")
+            # # Load news data
+            # print("\nLoading news data...")
+            # self.news_df = pd.read_csv(self.news_file, sep='\t')
+            # print(f"Loaded {len(self.news_df)} news articles")
             
-            # Print first few rows of news data for verification
-            print("\nFirst few rows of news data:")
-            print(self.news_df.head())
-            print("\nNews columns:", self.news_df.columns.tolist())
+            # # Print first few rows of news data for verification
+            # print("\nFirst few rows of news data:")
+            # print(self.news_df.head())
+            # print("\nNews columns:", self.news_df.columns.tolist())
             
-            # Create news lookup dictionary for faster access
-            self.news_lookup = self.news_df.set_index('News ID').to_dict('index')
+            # # Create news lookup dictionary for faster access
+            # self.news_lookup = self.news_df.set_index('News ID').to_dict('index')
             
             # Read train.tsv in chunks to handle large file
             print("\nLoading training data...")
@@ -96,32 +96,32 @@ class NewsSimulator:
         
         # Generate logs for clicked news
         for news_id, dwell_time in zip(pos_news, pos_dwell_times):
-            if news_id in self.news_lookup:
-                news = self.news_lookup[news_id]
+            # if news_id in self.news_lookup:
+            #     news = self.news_lookup[news_id]
                 logs.append({
                     'impression_id': impression_id,
                     'user_id': row['UserID'],
                     'timestamp': start_time.isoformat(),
-                    'news_id': news_id,
-                    'category': news.get('Category', ''),
-                    'headline': news.get('Headline', ''),
-                    'topic': news.get('Topic', ''),
+                    # 'news_id': news_id,
+                    # 'category': news.get('Category', ''),
+                    # 'headline': news.get('Headline', ''),
+                    # 'topic': news.get('Topic', ''),
                     'clicked': 1,
                     'dwell_time': dwell_time
                 })
         
         # Generate logs for unclicked news
         for news_id in neg_news:
-            if news_id in self.news_lookup:
-                news = self.news_lookup[news_id]
+            # if news_id in self.news_lookup:
+            #     news = self.news_lookup[news_id]
                 logs.append({
                     'impression_id': impression_id,
                     'user_id': row['UserID'],
                     'timestamp': start_time.isoformat(),
-                    'news_id': news_id,
-                    'category': news.get('Category', ''),
-                    'headline': news.get('Headline', ''),
-                    'topic': news.get('Topic', ''),
+                    # 'news_id': news_id,
+                    # 'category': news.get('Category', ''),
+                    # 'headline': news.get('Headline', ''),
+                    # 'topic': news.get('Topic', ''),
                     'clicked': 0,
                     'dwell_time': 0
                 })
@@ -129,7 +129,7 @@ class NewsSimulator:
         return logs
 
     #400,000 rows in train.tsv, 100,000 rows in valid.tsv
-    def simulate_exposure_logs(self, num_logs=100): 
+    def simulate_exposure_logs(self, num_rows=100): 
         """Generate exposure logs from actual training data"""
         logs = []
         rows_processed = 0
@@ -141,13 +141,13 @@ class NewsSimulator:
                 logs.extend(chunk_logs)
                 
                 rows_processed += 1
-                if rows_processed >= num_logs:
+                if rows_processed >= num_rows:
                     break
             
-            if rows_processed >= num_logs:
+            if rows_processed >= num_rows:
                 break
                 
-        return logs[:num_logs]  # Return exactly num_logs entries
+        return logs  # Return logs for exactly num_rows entries
 
     def save_logs_to_file(self, filename='exposure_logs.json', batch_size=100):
         """Save simulated logs to a file"""
@@ -156,6 +156,39 @@ class NewsSimulator:
             for log in logs:
                 f.write(json.dumps(log) + '\n')
         print(f"Saved {len(logs)} logs to {filename}")
+    
+    def generate_continuous_logs(self, interval_seconds: int = 5):
+        """Generate logs continuously at specified intervals for Flume to collect
+        
+        Args:
+            interval_seconds: Time between log generation batches
+        """
+        import time
+        
+        # Use current directory (simulation directory) for output
+        current_dir = os.path.dirname(__file__)
+        logs_dir = os.path.join(current_dir, 'logs')
+        os.makedirs(logs_dir, exist_ok=True)
+        
+        while True:
+            try:
+                # Generate timestamp for this batch
+                timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+                filename = os.path.join(logs_dir, f'exposure_logs_{timestamp}.json')
+                
+                # Generate and save a batch of logs
+                self.save_logs_to_file(filename=filename, batch_size=100)
+                print(f"Generated logs at {filename}")
+                
+                # Wait for next interval
+                time.sleep(interval_seconds)
+                
+            except KeyboardInterrupt:
+                print("Stopping log generation...")
+                break
+            except Exception as e:
+                print(f"Error generating logs: {e}")
+                raise
 
 if __name__ == "__main__":
     simulator = NewsSimulator()

@@ -99,17 +99,19 @@ class NewsETLPipeline:
     def run_pipeline(self):
         """Run the complete ETL pipeline"""
         try:
-            # Load PENS news data first
+            # Load PENS data if not already loaded
             self.load_pens_news_data()
             
-            # Start consuming and storing exposure logs
+            # Start consuming and storing logs
+            self.logger.info("Starting to consume exposure logs...")
             self.consume_and_store_logs()
             
         except Exception as e:
-            self.logger.error(f"Error in ETL pipeline: {e}")
+            self.logger.error(f"Pipeline error: {e}")
             raise
         finally:
-            self.producer.flush()  # Make sure all messages are sent
+            # Clean up resources
+            self.producer.close()
 
 if __name__ == "__main__":
     pipeline = NewsETLPipeline()

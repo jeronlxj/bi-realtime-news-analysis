@@ -38,7 +38,7 @@ class DatabaseConnection:
     def __init__(self):
         """Initialize database connection"""
         # Use PostgreSQL as the storage system
-        self.engine = create_engine('postgresql://postgres:postgres@localhost:5432/news_analysis')
+        self.engine = create_engine('postgresql://newsuser:newspass@localhost:5432/newsdb')
         
         # Create tables if they don't exist
         Base.metadata.create_all(self.engine)
@@ -99,4 +99,13 @@ class DatabaseConnection:
     
     def close(self):
         """Close the database session"""
-        self.session.close()
+        try:
+            self.session.close()
+            self.logger.info("Database session closed successfully")
+        except Exception as e:
+            self.logger.error(f"Error closing database session: {e}")
+            raise
+            
+    def __del__(self):
+        """Destructor to ensure resources are cleaned up"""
+        self.close()
