@@ -16,26 +16,63 @@ class NewsSimulator:
         self.train_file = os.path.join(base_dir, 'data', 'PENS', 'train.tsv')
         
         try:
+            # Check if files exist and print their sizes
+            for file_path in [self.news_file, self.train_file]:
+                if not os.path.exists(file_path):
+                    raise FileNotFoundError(f"File not found: {file_path}")
+                size_mb = os.path.getsize(file_path) / (1024 * 1024)
+                print(f"Found {os.path.basename(file_path)} (Size: {size_mb:.2f} MB)")
+            
             # Load news data
+            print("\nLoading news data...")
             self.news_df = pd.read_csv(self.news_file, sep='\t')
             print(f"Loaded {len(self.news_df)} news articles")
+            
+            # Print first few rows of news data for verification
+            print("\nFirst few rows of news data:")
+            print(self.news_df.head())
+            print("\nNews columns:", self.news_df.columns.tolist())
             
             # Create news lookup dictionary for faster access
             self.news_lookup = self.news_df.set_index('News ID').to_dict('index')
             
             # Read train.tsv in chunks to handle large file
+            print("\nLoading training data...")
             self.chunk_size = 1000
             self.train_reader = pd.read_csv(
                 self.train_file, 
                 sep='\t',
-                chunksize=self.chunk_size,
-                names=['UserID', 'ClicknewsID', 'dwelltime', 'exposure_time', 
-                      'pos', 'neg', 'start', 'end', 'dwelltime_pos']
+                chunksize=self.chunk_size
             )
             
+            # Try to read first chunk to verify train data
+            first_chunk = next(self.train_reader)
+            print(f"\nFirst few rows of train data:")
+            print(first_chunk.head())
+            print("\nTrain columns:", first_chunk.columns.tolist())
+            
+            # Reset train reader for actual use
+            self.train_reader = pd.read_csv(
+                self.train_file, 
+                sep='\t',
+                chunksize=self.chunk_size
+            )
+            
+        except FileNotFoundError as e:
+            print(f"File not found error: {e}")
+            print(f"Please ensure the PENS dataset files are in the correct location:")
+            print(f"- News file should be at: {self.news_file}")
+            print(f"- Train file should be at: {self.train_file}")
+            raise
+        except pd.errors.EmptyDataError:
+            print(f"Error: One of the data files is empty")
+            raise
         except Exception as e:
-            print(f"Error loading PENS data: {e}")
-            print(f"Looking for files in: {self.news_file}")
+            print(f"Error loading PENS data: {str(e)}")
+            print(f"Error type: {type(e).__name__}")
+            print(f"Looking for files in:")
+            print(f"- News file: {self.news_file}")
+            print(f"- Train file: {self.train_file}")
             raise
 
     def parse_impression(self, row: pd.Series) -> List[Dict]:
@@ -91,7 +128,8 @@ class NewsSimulator:
         
         return logs
 
-    def simulate_exposure_logs(self, num_logs=100):
+    #400,000 rows in train.tsv, 100,000 rows in valid.tsv
+    def simulate_exposure_logs(self, num_logs=100): 
         """Generate exposure logs from actual training data"""
         logs = []
         rows_processed = 0

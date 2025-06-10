@@ -1,42 +1,102 @@
-from sqlalchemy import create_engine, Column, Integer, String, Sequence
+from sqlalchemy import create_engine, Column, String, Integer, Float, DateTime, JSON, Text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
-
-DATABASE_URL = "postgresql://newsuser:newpass@postgres:5432/newsdb"
+from datetime import datetime
+import logging
+from typing import Dict, List
 
 Base = declarative_base()
 
-class NewsTopic(Base):
-    __tablename__ = 'news_topics'
+class News(Base):
+    """News article table schema"""
+    __tablename__ = 'news'
     
-    id = Column(Integer, Sequence('topic_id_seq'), primary_key=True)
-    title = Column(String(255), nullable=False)
-    content = Column(String, nullable=False)
-    timestamp = Column(Integer, nullable=False)
+    news_id = Column(String, primary_key=True)
+    category = Column(String)
+    topic = Column(String)
+    headline = Column(String)
+    news_body = Column(Text)
+    title_entity = Column(JSON)
+    entity_content = Column(JSON)
 
-engine = create_engine(DATABASE_URL)
-Base.metadata.create_all(engine)
+class ExposureLog(Base):
+    """News exposure log table schema"""
+    __tablename__ = 'exposure_logs'
+    
+    impression_id = Column(String, primary_key=True)
+    user_id = Column(String)
+    timestamp = Column(DateTime)
+    news_id = Column(String)
+    category = Column(String)
+    headline = Column(String)
+    topic = Column(String)
+    clicked = Column(Integer)
+    dwell_time = Column(Float)
+    processed_timestamp = Column(DateTime)
 
-Session = sessionmaker(bind=engine)
-
-def get_session():
-    return Session()
-
-def add_news_topic(title, content, timestamp):
-    session = get_session()
-    new_topic = NewsTopic(title=title, content=content, timestamp=timestamp)
-    session.add(new_topic)
-    session.commit()
-    session.close()
-
-def get_all_news_topics():
-    session = get_session()
-    topics = session.query(NewsTopic).all()
-    session.close()
-    return topics
-
-def get_news_topic_by_id(topic_id):
-    session = get_session()
-    topic = session.query(NewsTopic).filter(NewsTopic.id == topic_id).first()
-    session.close()
-    return topic
+class DatabaseConnection:
+    def __init__(self):
+        """Initialize database connection"""
+        # Use PostgreSQL as the storage system
+        self.engine = create_engine('postgresql://postgres:postgres@localhost:5432/news_analysis')
+        
+        # Create tables if they don't exist
+        Base.metadata.create_all(self.engine)
+        
+        # Create session factory
+        Session = sessionmaker(bind=self.engine)
+        self.session = Session()
+        
+        # Set up logging
+        self.logger = logging.getLogger(__name__)
+    
+    def store_news_data(self, news_records: List[Dict]):
+        """Store PENS news data in the database"""
+        try:
+            for record in news_records:
+                news = News(
+                    news_id=record['News ID'],
+                    category=record['Category'],
+                    topic=record['Topic'],
+                    headline=record['Headline'],
+                    news_body=record['News body'],
+                    title_entity=record['Title entity'],
+                    entity_content=record['Entity content']
+                )
+                self.session.merge(news)  # Use merge to handle updates of existing records
+            
+            self.session.commit()
+            self.logger.info(f"Successfully stored {len(news_records)} news articles")
+            
+        except Exception as e:
+            self.session.rollback()
+            self.logger.error(f"Error storing news data: {e}")
+            raise
+    
+    def store_exposure_log(self, log: Dict):
+        """Store a single exposure log in the database"""
+        try:
+            exposure_log = ExposureLog(
+                impression_id=log['impression_id'],
+                user_id=log['user_id'],
+                timestamp=datetime.fromisoformat(log['timestamp']),
+                news_id=log['news_id'],
+                category=log['category'],
+                headline=log['headline'],
+                topic=log['topic'],
+                clicked=log['clicked'],
+                dwell_time=log['dwell_time'],
+                processed_timestamp=datetime.fromisoformat(log['processed_timestamp'])
+            )
+            
+            self.session.merge(exposure_log)
+            self.session.commit()
+            
+        except Exception as e:
+            self.session.rollback()
+            self.logger.error(f"Error storing exposure log: {e}")
+            raise
+    
+    def close(self):
+        """Close the database session"""
+        self.session.close()

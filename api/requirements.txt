@@ -8,3 +8,8 @@ flask-cors==6.0.0
 requests==2.32.4
 pandas==2.3.0
 numpy==2.3.0
+
+confluent-kafka==2.10.0
+
+pytest==8.4.0
+pytest-cov==6.1.1

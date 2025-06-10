@@ -63,7 +63,7 @@ To run the application, follow these steps:
      ```
      docker-compose up
      ```
-   - Start Flume locally (with powershell)
+   - If Flume image doesn't work, start Flume locally (with powershell)
      ```
      $env:JAVA_OPTS="-Dflume.root.logger=INFO,console"
      flume-ng agent -n agent -conf ./api/src/flume -conf-file ./api/src/flume/flume.conf
