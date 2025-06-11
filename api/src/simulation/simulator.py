@@ -167,27 +167,41 @@ class NewsSimulator:
         
         # Use current directory (simulation directory) for output
         current_dir = os.path.dirname(__file__)
+        print(f"Current directory: {current_dir}", flush=True)
+        
         logs_dir = os.path.join(current_dir, 'logs')
+        print(f"Logs directory: {logs_dir}", flush=True)
+        print(f"Creating logs directory if it doesn't exist", flush=True)
         os.makedirs(logs_dir, exist_ok=True)
+        
+        print(f"Checking if logs directory exists: {os.path.exists(logs_dir)}", flush=True)
+        print(f"Checking if logs directory is writable: {os.access(logs_dir, os.W_OK)}", flush=True)
         
         while True:
             try:
                 # Generate timestamp for this batch
                 timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
                 filename = os.path.join(logs_dir, f'exposure_logs_{timestamp}.json')
+                print(f"Attempting to write to: {filename}", flush=True)
                 
                 # Generate and save a batch of logs
                 self.save_logs_to_file(filename=filename, batch_size=100)
-                print(f"Generated logs at {filename}")
+                print(f"Generated logs at {filename}", flush=True)
+                
+                # Verify the file was created
+                print(f"Verifying file exists: {os.path.exists(filename)}", flush=True)
                 
                 # Wait for next interval
                 time.sleep(interval_seconds)
                 
             except KeyboardInterrupt:
-                print("Stopping log generation...")
+                print("Stopping log generation...", flush=True)
                 break
             except Exception as e:
-                print(f"Error generating logs: {e}")
+                print(f"Error generating logs: {str(e)}", flush=True)
+                import traceback
+                print("Full traceback:", flush=True)
+                print(traceback.format_exc(), flush=True)
                 raise
 
 if __name__ == "__main__":

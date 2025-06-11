@@ -2,6 +2,7 @@ from flask import Flask, jsonify, request
 from etl.etl_pipeline import NewsETLPipeline
 from analysis.analyzer import NewsAnalyzer
 from storage.db import DatabaseConnection, News
+from simulation.simulator import NewsSimulator
 import threading
 import time
 from kafka import KafkaAdminClient
@@ -65,17 +66,46 @@ def start_etl_pipeline():
             print(f"Error in ETL pipeline: {e}")
             time.sleep(10)  # Wait before retrying
 
+# to run simulator in docker, the PENS dataset files must have been copied to a volume in the container
+# def start_simulator():
+#     """Run the news simulator in a loop"""
+#     while True:
+#         try:
+#             print("Starting news simulator...")
+#             simulator = NewsSimulator()
+#             simulator.generate_continuous_logs()
+#         except FileNotFoundError as e:
+#             print(f"Error in simulator - File not found: {e}")
+#             print("Please ensure the PENS dataset files are available")
+#             raise  # Stop retrying if files are missing
+#         except Exception as e:
+#             print(f"Error in simulator: {str(e)}")
+#             import traceback
+#             print("Full traceback:")
+#             print(traceback.format_exc())
+#             time.sleep(10)  # Wait before retrying
+
 # Wait for services to be ready
 wait_for_services()
 
-# Initialize components
-etl_pipeline = NewsETLPipeline()
-analyzer = NewsAnalyzer(kafka_bootstrap_servers=os.getenv('KAFKA_BOOTSTRAP_SERVERS', 'kafka:9092'))
+# Initialize database connection
 db = DatabaseConnection()
 
-# Start ETL pipeline in background thread
-etl_thread = threading.Thread(target=start_etl_pipeline, daemon=True)
-etl_thread.start()
+# # Start simulator in background thread - don't make it daemon so it won't be killed
+# simulator_thread = threading.Thread(target=start_simulator, daemon=False)
+# simulator_thread.start()
+
+try:
+    # Initialize Spark components
+    analyzer = NewsAnalyzer(kafka_bootstrap_servers=os.getenv('KAFKA_BOOTSTRAP_SERVERS', 'kafka:9092'))
+    etl_pipeline = NewsETLPipeline()
+    
+    # Start ETL pipeline in background thread
+    etl_thread = threading.Thread(target=start_etl_pipeline, daemon=True)
+    etl_thread.start()
+except Exception as e:
+    print(f"Failed to initialize Spark components: {e}")
+    print("Continuing without Spark functionality...")
 
 @app.route('/api/run_etl', methods=['POST'])
 def run_etl():

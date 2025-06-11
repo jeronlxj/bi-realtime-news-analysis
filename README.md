@@ -69,11 +69,14 @@ To run the application, follow these steps:
      flume-ng agent -n agent -conf ./api/src/flume -conf-file ./api/src/flume/flume.conf
 
    - Start the log generator/ simulator
+     1. open run_start_simulator.bat from file explorer
+     OR
+     2.
      ```
      cd api\src; python
-from simulation.simulator import NewsSimulator
-simulator = NewsSimulator()
-simulator.generate_continuous_logs()
+     from simulation.simulator import NewsSimulator
+     simulator = NewsSimulator()
+     simulator.generate_continuous_logs()
      ```
 Flume will:
 -Monitor the logs directory
