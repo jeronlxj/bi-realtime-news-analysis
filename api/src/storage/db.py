@@ -3,6 +3,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from datetime import datetime
 import logging
+import os
 from typing import Dict, List
 
 Base = declarative_base()
@@ -38,7 +39,12 @@ class DatabaseConnection:
     def __init__(self):
         """Initialize database connection"""
         # Use PostgreSQL as the storage system
-        self.engine = create_engine('postgresql://newsuser:newspass@localhost:5432/newsdb')
+        # Check if running in Docker (POSTGRES_HOST env var is set)
+        postgres_host = os.getenv('POSTGRES_HOST', 'localhost')
+        postgres_port = os.getenv('POSTGRES_PORT', '15432' if postgres_host == 'localhost' else '5432')
+        
+        db_url = f'postgresql://newsuser:newspass@{postgres_host}:{postgres_port}/newsdb'
+        self.engine = create_engine(db_url)
         
         # Create tables if they don't exist
         Base.metadata.create_all(self.engine)
@@ -80,10 +86,10 @@ class DatabaseConnection:
                 impression_id=log['impression_id'],
                 user_id=log['user_id'],
                 timestamp=datetime.fromisoformat(log['timestamp']),
-                news_id=log['news_id'],
-                category=log['category'],
-                headline=log['headline'],
-                topic=log['topic'],
+                news_id=log.get('news_id', ''),
+                category=log.get('category', ''),
+                headline=log.get('headline', ''),
+                topic=log.get('topic', ''),
                 clicked=log['clicked'],
                 dwell_time=log['dwell_time'],
                 processed_timestamp=datetime.fromisoformat(log['processed_timestamp'])
@@ -108,4 +114,7 @@ class DatabaseConnection:
             
     def __del__(self):
         """Destructor to ensure resources are cleaned up"""
-        self.close()
+        try:
+            self.close()
+        except:
+            pass

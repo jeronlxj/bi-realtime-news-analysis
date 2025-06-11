@@ -30,7 +30,6 @@ services:
       KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
-
   postgres:
     image: postgres:15
     environment:
@@ -38,7 +37,7 @@ services:
       POSTGRES_PASSWORD: newspass
       POSTGRES_DB: newsdb
     ports:
-      - "5432:5432"
+      - "15432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
 
