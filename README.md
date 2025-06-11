@@ -122,6 +122,7 @@ You can verify the flow by:
   ```
   docker-compose down --remove-orphans
   docker builder prune
+  docker network prune
   docker volume prune
   ```
 ## Diagnosis
@@ -129,6 +130,18 @@ You can verify the flow by:
   ```
   .\test_spark_setup.ps1
   ```
+## Fixing
+-Port Issues
+--Check Protocol tcp Port Exclusion Ranges
+  ```
+  netsh interface ipv4 show excludedportrange protocol=tcp
+  ```
+--Reset Windows TCP/IP stack
+  ```
+  netsh winsock reset
+  netsh int ip reset
+  ```
+--Restart your computer after running these commands
 
 ## Understanding 
 -Flow of Data
