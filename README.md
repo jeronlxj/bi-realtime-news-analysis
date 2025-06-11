@@ -71,9 +71,9 @@ To run the application, follow these steps:
    - Start the log generator/ simulator
      ```
      cd api\src; python
-     from simulation.simulator import NewsSimulator
-     simulator = NewsSimulator()
-     simulator.generate_continuous_logs()
+from simulation.simulator import NewsSimulator
+simulator = NewsSimulator()
+simulator.generate_continuous_logs()
      ```
 Flume will:
 -Monitor the logs directory
@@ -89,6 +89,7 @@ You can verify the flow by:
 -Checking Kafka topics: 
   ```
   docker-compose exec kafka kafka-topics --list --bootstrap-server localhost:9092
+  docker-compose exec kafka kafka-console-consumer --bootstrap-server localhost:9092 --topic news_exposure_logs --max-messages 5
   ```
 -Viewing PostgreSQL data: Connect to DB and query the tables
   ```

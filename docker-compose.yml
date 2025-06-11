@@ -6,8 +6,9 @@ services:
       JAVA_OPTS: "-Xms256m -Xmx512m -Dflume.monitoring.type=http -Dflume.monitoring.port=34545 -Dflume.root.logger=INFO,LOGFILE,console -Dlog4j.configuration=file:///opt/flume-config/log4j.properties"
     volumes:
       - ./api/src/flume:/opt/flume-config
-      - ./api/src/simulation:/opt/flume/data
+      - ./api/src/simulation/logs:/opt/flume/data
       - flume_logs:/opt/flume/logs
+      - ./api/src:/opt/app/src
     command:
       [
         "agent",
@@ -43,6 +44,10 @@ services:
       KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_NUM_PARTITIONS: 1
   
   postgres:
     image: postgres:15

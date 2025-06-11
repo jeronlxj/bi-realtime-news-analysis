@@ -28,9 +28,9 @@ class ExposureLog(Base):
     user_id = Column(String)
     timestamp = Column(DateTime)
     news_id = Column(String)
-    category = Column(String)
-    headline = Column(String)
-    topic = Column(String)
+    # category = Column(String)
+    # headline = Column(String)
+    # topic = Column(String)
     clicked = Column(Integer)
     dwell_time = Column(Float)
     processed_timestamp = Column(DateTime)
@@ -87,9 +87,9 @@ class DatabaseConnection:
                 user_id=log['user_id'],
                 timestamp=datetime.fromisoformat(log['timestamp']),
                 news_id=log.get('news_id', ''),
-                category=log.get('category', ''),
-                headline=log.get('headline', ''),
-                topic=log.get('topic', ''),
+                # category=log.get('category', ''),
+                # headline=log.get('headline', ''),
+                # topic=log.get('topic', ''),
                 clicked=log['clicked'],
                 dwell_time=log['dwell_time'],
                 processed_timestamp=datetime.fromisoformat(log['processed_timestamp'])
