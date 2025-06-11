@@ -67,7 +67,8 @@ services:
       - "7077:7077"
     environment:
       - SPARK_MODE=master
-      - SPARK_RPC_AUTHENTICATION_ENABLED=no      - SPARK_RPC_ENCRYPTION_ENABLED=no
+      - SPARK_RPC_AUTHENTICATION_ENABLED=no      
+      - SPARK_RPC_ENCRYPTION_ENABLED=no
       - SPARK_LOCAL_STORAGE_ENCRYPTION_ENABLED=no
       - SPARK_SSL_ENABLED=no
       - SPARK_MASTER_OPTS=-Dspark.deploy.defaultCores=1
@@ -105,8 +106,6 @@ services:
         condition: service_started
       flume:
         condition: service_started
-      # spark:
-      #   condition: service_healthy
     ports:
       - "8000:8000"
     environment:
