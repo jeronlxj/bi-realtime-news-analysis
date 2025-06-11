@@ -57,7 +57,7 @@ class NewsETLPipeline:
             
             # Store news data in the database
             news_records = news_df.to_dict('records')
-            batch_size = 1000
+            batch_size = 10000
             for i in range(0, len(news_records), batch_size):
                 batch = news_records[i:i + batch_size]
                 self.logger.info(f"Storing batch {i//batch_size + 1} of {len(news_records)//batch_size + 1}")
