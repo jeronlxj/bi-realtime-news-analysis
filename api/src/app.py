@@ -14,19 +14,30 @@ app = Flask(__name__)
 def wait_for_services():
     """Wait for Kafka and PostgreSQL to be ready"""
     # Wait for Kafka
-    while True:
+    kafka_retries = 0
+    max_retries = 30
+    while kafka_retries < max_retries:
         try:
             kafka_host = os.getenv('KAFKA_BOOTSTRAP_SERVERS', 'kafka:9092')
-            admin_client = KafkaAdminClient(bootstrap_servers=kafka_host)
+            admin_client = KafkaAdminClient(
+                bootstrap_servers=kafka_host,
+                request_timeout_ms=10000,
+                connections_max_idle_ms=60000
+            )
             admin_client.close()
             print("Successfully connected to Kafka")
             break
-        except NoBrokersAvailable:
-            print("Waiting for Kafka to be ready...")
-            time.sleep(2)
+        except Exception as e:
+            print(f"Waiting for Kafka to be ready... (attempt {kafka_retries + 1}/{max_retries}): {str(e)}")
+            kafka_retries += 1
+            time.sleep(5)
+    
+    if kafka_retries >= max_retries:
+        print("Warning: Could not connect to Kafka after maximum retries. Continuing anyway...")
     
     # Wait for PostgreSQL
-    while True:
+    postgres_retries = 0
+    while postgres_retries < max_retries:
         try:
             db_host = os.getenv('POSTGRES_HOST', 'postgres')
             conn = psycopg2.connect(
@@ -38,9 +49,10 @@ def wait_for_services():
             conn.close()
             print("Successfully connected to PostgreSQL")
             break
-        except psycopg2.OperationalError:
-            print("Waiting for PostgreSQL to be ready...")
-            time.sleep(2)
+        except psycopg2.OperationalError as e:
+            print(f"Waiting for PostgreSQL to be ready... (attempt {postgres_retries + 1}/{max_retries}): {str(e)}")
+            postgres_retries += 1
+            time.sleep(3)
 
 def start_etl_pipeline():
     """Run the ETL pipeline in a loop"""

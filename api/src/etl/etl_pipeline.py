@@ -9,8 +9,9 @@ from datetime import datetime
 class NewsETLPipeline:
     def __init__(self):
         """Initialize ETL pipeline with Kafka configuration"""
+        kafka_host = os.getenv('KAFKA_BOOTSTRAP_SERVERS', 'kafka:9092')
         self.producer = KafkaProducer(
-            bootstrap_servers=['localhost:9092'],
+            bootstrap_servers=[kafka_host],
             client_id='news_etl_pipeline',
             value_serializer=lambda v: json.dumps(v).encode('utf-8')
         )
@@ -76,9 +77,10 @@ class NewsETLPipeline:
 
     def consume_and_store_logs(self):
         """Consume logs from Kafka and store in database"""
+        kafka_host = os.getenv('KAFKA_BOOTSTRAP_SERVERS', 'kafka:9092')
         consumer = KafkaConsumer(
             'news_exposure_logs',
-            bootstrap_servers=['localhost:9092'],
+            bootstrap_servers=[kafka_host],
             group_id='news_storage_group',
             auto_offset_reset='earliest',
             value_deserializer=lambda m: json.loads(m.decode('utf-8'))
@@ -86,7 +88,6 @@ class NewsETLPipeline:
         
         try:
             for message in consumer:
-                
                 # Process and store the message
                 log = message.value  # value_deserializer already decoded the message
                 self.db.store_exposure_log(log)

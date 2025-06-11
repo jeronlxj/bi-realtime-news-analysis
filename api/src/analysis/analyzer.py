@@ -1,11 +1,19 @@
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import col, window
+import os
 
 class NewsAnalyzer:
     def __init__(self, kafka_bootstrap_servers):
+        # Connect to the external Spark cluster
+        spark_master = os.getenv('SPARK_MASTER_URL', 'spark://spark:7077')
+        
         self.spark = SparkSession.builder \
             .appName("NewsAnalyzer") \
+            .master(spark_master) \
+            .config("spark.sql.adaptive.enabled", "true") \
+            .config("spark.sql.adaptive.coalescePartitions.enabled", "true") \
             .getOrCreate()
+            
         self.kafka_bootstrap_servers = kafka_bootstrap_servers
 
     def analyze_stream(self):

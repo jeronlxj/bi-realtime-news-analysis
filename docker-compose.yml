@@ -3,12 +3,18 @@
 services:
   flume:
     image: probablyfine/flume
+    environment:
+      FLUME_AGENT_NAME: exposure_logs_agent
+      JAVA_OPTS: "-Xms256m -Xmx512m -Dflume.monitoring.type=http -Dflume.monitoring.port=34545 -Dflume.root.logger=INFO,LOGFILE,console -Dlog4j.configuration=file:///opt/flume-config/log4j.properties"
     volumes:
-      - ./api/src/flume:/opt/flume/conf
+      - ./api/src/flume:/opt/flume-config
       - ./api/src/simulation:/opt/flume/data
-    command: ["agent", "-n", "exposure_logs_agent", "-c", "/opt/flume/conf", "-f", "/opt/flume/conf/flume.conf"]
+      - flume_logs:/opt/flume/logs
+    command: ["agent", "-n", "exposure_logs_agent", "-c", "/opt/flume-config", "-f", "/opt/flume-config/flume.conf"]
     depends_on:
-      - kafka
+      kafka:
+        condition: service_started
+    restart: unless-stopped
 
   zookeeper:
     image: confluentinc/cp-zookeeper:7.5.0
@@ -26,7 +32,7 @@ services:
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
       KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
@@ -55,18 +61,19 @@ services:
     environment:
       - SPARK_MODE=worker
       - SPARK_MASTER_URL=spark://spark:7077
-
   backend:
     build: ./api
     depends_on:
       - kafka
       - postgres
       - flume
+      - spark
     ports:
       - "8000:8000"
     environment:
       - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
       - POSTGRES_HOST=postgres
+      - SPARK_MASTER_URL=spark://spark:7077
     volumes:
       - ./api:/app
     restart: unless-stopped
@@ -80,3 +87,4 @@ services:
 
 volumes:
   pgdata:
+  flume_logs:
