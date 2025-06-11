@@ -43,6 +43,7 @@ services:
       KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+  
   postgres:
     image: postgres:15
     environment:
@@ -68,6 +69,7 @@ services:
     environment:
       - SPARK_MODE=worker
       - SPARK_MASTER_URL=spark://spark:7077
+  
   backend:
     build: ./api
     depends_on:
@@ -84,7 +86,7 @@ services:
     volumes:
       - ./api:/app
     restart: unless-stopped
-
+  
   frontend:
     build: ./frontend
     ports:

@@ -96,6 +96,13 @@ You can verify the flow by:
   ```
 -Monitoring Flume metrics: Through the Flume metrics endpoint
 
+## Maintenance
+-Clean up docker
+  ```
+  docker-compose down --remove-orphans
+  docker builder prune
+  docker volume prune
+  ```
 ## Contributing
 
 Contributions are welcome! Please open an issue or submit a pull request for any improvements or bug fixes.
