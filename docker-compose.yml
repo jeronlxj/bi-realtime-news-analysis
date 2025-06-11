@@ -1,5 +1,3 @@
-# version: '3.8'
-
 services:
   flume:
     image: probablyfine/flume
@@ -10,7 +8,16 @@ services:
       - ./api/src/flume:/opt/flume-config
       - ./api/src/simulation:/opt/flume/data
       - flume_logs:/opt/flume/logs
-    command: ["agent", "-n", "exposure_logs_agent", "-c", "/opt/flume-config", "-f", "/opt/flume-config/flume.conf"]
+    command:
+      [
+        "agent",
+        "-n",
+        "exposure_logs_agent",
+        "-c",
+        "/opt/flume-config",
+        "-f",
+        "/opt/flume-config/flume.conf",
+      ]
     depends_on:
       kafka:
         condition: service_started

@@ -86,7 +86,10 @@ The ETL pipeline will:
 -Store them in PostgreSQL
 
 You can verify the flow by:
--Checking Kafka topics: kafka-topics.sh --list --bootstrap-server localhost:9092
+-Checking Kafka topics: 
+  ```
+  docker-compose exec kafka kafka-topics --list --bootstrap-server localhost:9092
+  ```
 -Viewing PostgreSQL data: Connect to DB and query the tables
   ```
   docker-compose exec postgres psql -U newsuser -d newsdb
