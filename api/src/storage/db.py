@@ -70,7 +70,8 @@ class DatabaseConnection:
                     entity_content=record['Entity content']
                 )
                 self.session.merge(news)  # Use merge to handle updates of existing records
-            
+                
+            self.session.flush()  # Force SQL execution before commit
             self.session.commit()
             self.logger.info(f"Successfully stored {len(news_records)} news articles")
             

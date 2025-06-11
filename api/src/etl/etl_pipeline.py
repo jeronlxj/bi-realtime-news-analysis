@@ -1,4 +1,5 @@
 from kafka import KafkaProducer, KafkaConsumer
+from threading import Thread
 import json
 import pandas as pd
 import os
@@ -30,17 +31,37 @@ class NewsETLPipeline:
         
     def load_pens_news_data(self):
         """Load and process PENS news data"""
-        base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
-        news_file = os.path.join(base_dir, 'data', 'PENS', 'news.tsv')
+        ### Check if running in Docker (where /data is mounted) or locally ###
+        if os.path.exists('/data'):
+            # Docker environment
+            base_dir = '/data'
+        else:
+            # Local environment
+            base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+            base_dir = os.path.join(base_dir, 'data')
+        news_file = os.path.join(base_dir, 'PENS', 'news.tsv')
         
+        self.logger.info(f"Starting to load PENS news data from: {news_file}")
+
         try:
             # Load news data
-            news_df = pd.read_csv(news_file, sep='\t')
+            chunk_size = 10000  # Adjust based on your memory constraints
+            chunks = []
+
+            for chunk in pd.read_csv(news_file, sep='\t', chunksize=chunk_size):
+                self.logger.info(f"Processing chunk of size {len(chunk)}")
+                chunks.append(chunk)
+
+            news_df = pd.concat(chunks)
             self.logger.info(f"Loaded {len(news_df)} news articles from PENS dataset")
             
             # Store news data in the database
             news_records = news_df.to_dict('records')
-            self.db.store_news_data(news_records)
+            batch_size = 1000
+            for i in range(0, len(news_records), batch_size):
+                batch = news_records[i:i + batch_size]
+                self.logger.info(f"Storing batch {i//batch_size + 1} of {len(news_records)//batch_size + 1}")
+                self.db.store_news_data(batch)
             self.logger.info("Successfully stored news data in database")
             
         except Exception as e:
@@ -104,12 +125,16 @@ class NewsETLPipeline:
     def run_pipeline(self):
         """Run the complete ETL pipeline"""
         try:
-            # Load PENS data if not already loaded
-            # self.load_pens_news_data()
+            # Load PENS data in a separate thread
+            pens_loading_thread = Thread(target=self.load_pens_news_data)
+            pens_loading_thread.start()
             
             # Start consuming and storing logs
             self.logger.info("Starting to consume exposure logs...")
             self.consume_and_store_logs()
+
+            # Wait for PENS data loading to complete
+            pens_loading_thread.join()
             
         except Exception as e:
             self.logger.error(f"Pipeline error: {e}")
