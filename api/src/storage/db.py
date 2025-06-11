@@ -82,6 +82,8 @@ class DatabaseConnection:
     def store_exposure_log(self, log: Dict):
         """Store a single exposure log in the database"""
         try:
+            # self.logger.info(f"Attempting to store log: {log['impression_id']}")
+
             exposure_log = ExposureLog(
                 impression_id=log['impression_id'],
                 user_id=log['user_id'],
@@ -96,7 +98,16 @@ class DatabaseConnection:
             )
             
             self.session.merge(exposure_log)
+            self.session.flush()  # Force SQL execution before commit
+        
+            # Verify the record exists
+            verification = self.session.query(ExposureLog).filter_by(
+                impression_id=log['impression_id']
+            ).first()
+            # self.logger.info(f"Verification query result: {vars(verification) if verification else 'Not found'}")
+            
             self.session.commit()
+            # self.logger.info(f"Successfully committed log: {log['impression_id']}")
             
         except Exception as e:
             self.session.rollback()

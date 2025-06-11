@@ -98,6 +98,23 @@ You can verify the flow by:
   ```
   docker-compose exec postgres psql -U newsuser -d newsdb
   ```
+  ```
+  -- List all tables
+  \dt
+
+  -- Check exposure logs
+  SELECT * FROM exposure_logs LIMIT 5;
+
+  -- Check news articles
+  SELECT * FROM news LIMIT 5;
+
+  -- Get count of logs
+  SELECT COUNT(*) FROM exposure_logs;
+
+  -- Check table schema
+  \d exposure_logs
+  \d news
+  ```
 -Monitoring Flume metrics: Through the Flume metrics endpoint
 
 ## Maintenance
@@ -112,6 +129,11 @@ You can verify the flow by:
   ```
   .\test_spark_setup.ps1
   ```
+
+## Understanding 
+-Flow of Data
+graph LR
+    A[Python Dict] -->|Serialize| B[JSON String] -->|Encode| C[Bytes] -->|Network| D[Bytes] -->|Decode| E[JSON String] -->|Deserialize| F[Python Dict]
 
 ## Contributing
 

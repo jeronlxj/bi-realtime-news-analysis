@@ -11,9 +11,17 @@ class NewsSimulator:
         # Add impression ID counter
         self.current_impression_id = 1
         
-        base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
-        self.news_file = os.path.join(base_dir, 'data', 'PENS', 'news.tsv')
-        self.train_file = os.path.join(base_dir, 'data', 'PENS', 'train.tsv')
+        ### Check if running in Docker (where /data is mounted) or locally ###
+        if os.path.exists('/data'):
+            # Docker environment
+            base_dir = '/data'
+        else:
+            # Local environment
+            base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+            base_dir = os.path.join(base_dir, 'data')
+            
+        self.news_file = os.path.join(base_dir, 'PENS', 'news.tsv')
+        self.train_file = os.path.join(base_dir, 'PENS', 'train.tsv')
         
         try:
             # Check if files exist and print their sizes

@@ -47,6 +47,7 @@ class NewsETLPipeline:
             self.logger.error(f"Error loading PENS news data: {e}")
             raise
 
+    # not used
     def process_exposure_log(self, log: Dict):
         """Process a single exposure log"""
         try:
@@ -89,7 +90,10 @@ class NewsETLPipeline:
         try:
             for message in consumer:
                 # Process and store the message
-                log = message.value  # value_deserializer already decoded the message
+                log = message.value # Note value_deserializer already decoded the message
+                # Add processing timestamp before storing
+                log['processed_timestamp'] = datetime.now().isoformat()
+                # self.logger.debug(f"Processing message: {log}")
                 self.db.store_exposure_log(log)
                 
         except KeyboardInterrupt:
