@@ -86,3 +86,8 @@ A well-organized folder structure is crucial for scalability and team collaborat
 ---
 
 Following these practices will improve scalability, readability, and maintainability across your full-stack and data pipeline projects.
+
+## Docker
+MAINTAIN newlines between docker services in docker-compose.yml.
+Ensure that each service is clearly separated by a newline for better readability and maintainability.
+

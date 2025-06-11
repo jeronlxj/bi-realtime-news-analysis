@@ -101,7 +101,7 @@ class NewsETLPipeline:
         """Run the complete ETL pipeline"""
         try:
             # Load PENS data if not already loaded
-            self.load_pens_news_data()
+            # self.load_pens_news_data()
             
             # Start consuming and storing logs
             self.logger.info("Starting to consume exposure logs...")

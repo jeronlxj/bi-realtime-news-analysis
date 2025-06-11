@@ -107,6 +107,12 @@ You can verify the flow by:
   docker builder prune
   docker volume prune
   ```
+## Diagnosis
+-Spark Issues
+  ```
+  .\test_spark_setup.ps1
+  ```
+
 ## Contributing
 
 Contributions are welcome! Please open an issue or submit a pull request for any improvements or bug fixes.
