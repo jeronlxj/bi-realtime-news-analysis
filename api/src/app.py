@@ -226,7 +226,7 @@ def get_news_lifecycle(news_id):
         return jsonify({
             "news_id": news_id,
             "lifecycle_data": result,
-            "query_timestamp": datetime.utcnow().isoformat()
+            "query_timestamp": datetime.now().isoformat()
         }), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -244,7 +244,7 @@ def get_category_trends():
         result = db.get_category_trends(start_date, end_date)
         return jsonify({
             "trends": result,
-            "query_timestamp": datetime.utcnow().isoformat()
+            "query_timestamp": datetime.now().isoformat()
         }), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -263,7 +263,7 @@ def get_user_interests():
         result = db.get_user_interest_changes(user_id, start_date, end_date)
         return jsonify({
             "user_interests": result,
-            "query_timestamp": datetime.utcnow().isoformat()
+            "query_timestamp": datetime.now().isoformat()
         }), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -282,7 +282,7 @@ def get_hot_news():
                 "hours_ahead": hours_ahead,
                 "min_impressions": min_impressions
             },
-            "query_timestamp": datetime.utcnow().isoformat()
+            "query_timestamp": datetime.now().isoformat()
         }), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -297,7 +297,7 @@ def get_recommendations(user_id):
         return jsonify({
             "user_id": user_id,
             "recommendations": result,
-            "query_timestamp": datetime.utcnow().isoformat()
+            "query_timestamp": datetime.now().isoformat()
         }), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -312,7 +312,7 @@ def get_performance_stats():
         return jsonify({
             "performance_stats": result,
             "time_window_hours": hours,
-            "query_timestamp": datetime.utcnow().isoformat()
+            "query_timestamp": datetime.now().isoformat()
         }), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -322,7 +322,7 @@ def get_analytics_overview():
     """Get a comprehensive analytics overview for dashboard"""
     try:
         # Get data for the last 24 hours
-        end_date = datetime.utcnow()
+        end_date = datetime.now()
         start_date = end_date - timedelta(hours=24)
         
         # Gather multiple analytics in parallel
@@ -353,7 +353,7 @@ def get_analytics_overview():
             "category_trends": category_trends[:10],  # Top 10 categories
             "hot_news": hot_news[:5],  # Top 5 trending
             "performance": performance_stats,
-            "query_timestamp": datetime.utcnow().isoformat()
+            "query_timestamp": datetime.now().isoformat()
         }), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -369,7 +369,7 @@ def start_trend_analysis():
         return jsonify({
             "message": "Real-time trend analysis started",
             "query_id": query_id,
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.now().isoformat()
         }), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -383,7 +383,7 @@ def start_user_behavior_analysis():
         return jsonify({
             "message": "User behavior analysis started",
             "query_id": query_id,
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.now().isoformat()
         }), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -397,7 +397,7 @@ def start_anomaly_detection():
         return jsonify({
             "message": "Anomaly detection started",
             "query_id": query_id,
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.now().isoformat()
         }), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -416,7 +416,7 @@ def get_real_time_insights():
         return jsonify({
             "insights": insights,
             "query_type": query_type,
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.now().isoformat()
         }), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -433,7 +433,7 @@ def get_active_spark_queries():
         return jsonify({
             "active_queries": active_queries,
             "total_count": len(active_queries),
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.now().isoformat()
         }), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -450,7 +450,7 @@ def stop_spark_query(query_id):
         if success:
             return jsonify({
                 "message": f"Query {query_id} stopped successfully",
-                "timestamp": datetime.utcnow().isoformat()
+                "timestamp": datetime.now().isoformat()
             }), 200
         else:
             return jsonify({
@@ -470,7 +470,7 @@ def stop_all_spark_queries():
         spark_analyzer.stop_all_queries()
         return jsonify({
             "message": "All Spark queries stopped successfully",
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.now().isoformat()
         }), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500

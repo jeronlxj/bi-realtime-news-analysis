@@ -6,8 +6,20 @@ import logging
 import os
 from typing import Dict, List, Optional
 import time
+import json
 
 Base = declarative_base()
+
+def make_json_serializable(obj):
+    """Convert objects to JSON serializable format"""
+    if isinstance(obj, datetime):
+        return obj.isoformat()
+    elif isinstance(obj, dict):
+        return {key: make_json_serializable(value) for key, value in obj.items()}
+    elif isinstance(obj, (list, tuple)):
+        return [make_json_serializable(item) for item in obj]
+    else:
+        return obj
 
 class News(Base):
     """News article table schema with optimized indexing"""
@@ -36,7 +48,7 @@ class ExposureLog(Base):
     news_id = Column(String, index=True)  # Index for news-based queries
     clicked = Column(Integer, index=True)  # Index for click analysis
     dwell_time = Column(Float)
-    processed_timestamp = Column(DateTime, default=datetime.utcnow)
+    processed_timestamp = Column(DateTime)
     
     # Create composite indexes for common query patterns
     __table_args__ = (
@@ -153,15 +165,17 @@ class DatabaseConnection:
             self.session.rollback()
             self.logger.error(f"Error storing exposure log: {e}")
             raise
-    
     def log_query_performance(self, query_type: str, query_params: Dict, 
                             execution_time: float, result_count: int, 
                             success: bool = True, error_message: str = None):
         """Log query performance for monitoring and optimization"""
         try:
+            # Make query_params JSON serializable
+            serializable_params = make_json_serializable(query_params)
+            
             query_log = QueryLog(
                 query_type=query_type,
-                query_params=query_params,
+                query_params=serializable_params,
                 execution_time=execution_time,
                 result_count=result_count,
                 success=success,
