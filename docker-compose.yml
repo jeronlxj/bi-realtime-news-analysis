@@ -119,13 +119,15 @@ services:
       - ./api:/app
       - ./data:/data
     restart: unless-stopped
-  
+
   frontend:
     build: ./frontend
     ports:
       - "3000:3000"
     volumes:
-      - ./frontend:/app
+      - ./frontend/src:/app/src
+      - ./frontend/public:/app/public
+      - /app/node_modules
 
 volumes:
   pgdata:
