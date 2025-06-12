@@ -1,6 +1,8 @@
 from flask import Flask, jsonify, request
+from flask_cors import CORS
 from etl.etl_pipeline import NewsETLPipeline
 from analysis.analyzer import NewsAnalyzer
+from analysis.spark_analyzer import SparkNewsAnalyzer
 from storage.db import DatabaseConnection, News
 from simulation.simulator import NewsSimulator
 import threading
@@ -9,8 +11,10 @@ from kafka import KafkaAdminClient
 from kafka.errors import NoBrokersAvailable
 import psycopg2
 import os
+from datetime import datetime, timedelta
 
 app = Flask(__name__)
+CORS(app)  # Enable CORS for frontend communication
 
 def wait_for_services():
     """Wait for Kafka, PostgreSQL, and Spark to be ready"""
@@ -120,18 +124,25 @@ db = DatabaseConnection()
 
 # Initialize global variables for Spark components
 analyzer = None
+spark_analyzer = None
 etl_pipeline = None
 
 # # Start simulator in background thread - don't make it daemon so it won't be killed
 # simulator_thread = threading.Thread(target=start_simulator, daemon=False)
 # simulator_thread.start()
 
-try:
-    # Initialize Spark components with better error handling
-    print("Initializing Spark components...")
+try:    # Initialize Spark components with better error handling
+    print("Initializing Spark components...")    
     analyzer = NewsAnalyzer(kafka_bootstrap_servers=os.getenv('KAFKA_BOOTSTRAP_SERVERS', 'kafka:9092'))
-    print("Spark NewsAnalyzer initialized successfully")
+    print("NewsAnalyzer initialized successfully")
     
+    # Initialize advanced Spark analyzer
+    spark_analyzer = SparkNewsAnalyzer(kafka_bootstrap_servers=os.getenv('KAFKA_BOOTSTRAP_SERVERS', 'kafka:9092'))
+    if spark_analyzer.initialize_spark():
+        print("Advanced Spark analyzer initialized successfully")
+    else:
+        print("Warning: Advanced Spark analyzer initialization failed")
+        spark_analyzer = None    
     etl_pipeline = NewsETLPipeline()
     print("ETL pipeline initialized successfully")
     
@@ -196,6 +207,271 @@ def get_news():
                 'news_body': news.news_body
             } for news in news_data]
         return jsonify(result), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# New high-performance analytics endpoints
+
+@app.route('/api/analytics/news-lifecycle/<news_id>', methods=['GET'])
+def get_news_lifecycle(news_id):
+    """Get lifecycle analysis for a specific news article"""
+    try:
+        start_date_str = request.args.get('start_date')
+        end_date_str = request.args.get('end_date')
+        
+        start_date = datetime.fromisoformat(start_date_str) if start_date_str else None
+        end_date = datetime.fromisoformat(end_date_str) if end_date_str else None
+        
+        result = db.get_news_lifecycle(news_id, start_date, end_date)
+        return jsonify({
+            "news_id": news_id,
+            "lifecycle_data": result,
+            "query_timestamp": datetime.utcnow().isoformat()
+        }), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/analytics/category-trends', methods=['GET'])
+def get_category_trends():
+    """Get category trend analysis"""
+    try:
+        start_date_str = request.args.get('start_date')
+        end_date_str = request.args.get('end_date')
+        
+        start_date = datetime.fromisoformat(start_date_str) if start_date_str else None
+        end_date = datetime.fromisoformat(end_date_str) if end_date_str else None
+        
+        result = db.get_category_trends(start_date, end_date)
+        return jsonify({
+            "trends": result,
+            "query_timestamp": datetime.utcnow().isoformat()
+        }), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/analytics/user-interests', methods=['GET'])
+def get_user_interests():
+    """Get user interest analysis"""
+    try:
+        user_id = request.args.get('user_id')
+        start_date_str = request.args.get('start_date')
+        end_date_str = request.args.get('end_date')
+        
+        start_date = datetime.fromisoformat(start_date_str) if start_date_str else None
+        end_date = datetime.fromisoformat(end_date_str) if end_date_str else None
+        
+        result = db.get_user_interest_changes(user_id, start_date, end_date)
+        return jsonify({
+            "user_interests": result,
+            "query_timestamp": datetime.utcnow().isoformat()
+        }), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/analytics/hot-news', methods=['GET'])
+def get_hot_news():
+    """Get hot news prediction analysis"""
+    try:
+        hours_ahead = int(request.args.get('hours_ahead', 24))
+        min_impressions = int(request.args.get('min_impressions', 100))
+        
+        result = db.get_hot_news_prediction(hours_ahead, min_impressions)
+        return jsonify({
+            "hot_news": result,
+            "prediction_parameters": {
+                "hours_ahead": hours_ahead,
+                "min_impressions": min_impressions
+            },
+            "query_timestamp": datetime.utcnow().isoformat()
+        }), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/analytics/recommendations/<user_id>', methods=['GET'])
+def get_recommendations(user_id):
+    """Get personalized news recommendations for a user"""
+    try:
+        limit = int(request.args.get('limit', 10))
+        
+        result = db.get_user_recommendations(user_id, limit)
+        return jsonify({
+            "user_id": user_id,
+            "recommendations": result,
+            "query_timestamp": datetime.utcnow().isoformat()
+        }), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/analytics/performance', methods=['GET'])
+def get_performance_stats():
+    """Get query performance statistics"""
+    try:
+        hours = int(request.args.get('hours', 24))
+        
+        result = db.get_query_performance_stats(hours)
+        return jsonify({
+            "performance_stats": result,
+            "time_window_hours": hours,
+            "query_timestamp": datetime.utcnow().isoformat()
+        }), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/analytics/overview', methods=['GET'])
+def get_analytics_overview():
+    """Get a comprehensive analytics overview for dashboard"""
+    try:
+        # Get data for the last 24 hours
+        end_date = datetime.utcnow()
+        start_date = end_date - timedelta(hours=24)
+        
+        # Gather multiple analytics in parallel
+        category_trends = db.get_category_trends(start_date, end_date)
+        hot_news = db.get_hot_news_prediction(24, 50)
+        performance_stats = db.get_query_performance_stats(24)
+        
+        # Calculate summary statistics
+        total_categories = len(set(trend['category'] for trend in category_trends))
+        total_impressions = sum(trend['impressions'] for trend in category_trends)
+        total_clicks = sum(trend['clicks'] for trend in category_trends)
+        overall_ctr = total_clicks / max(total_impressions, 1)
+        
+        return jsonify({
+            "overview": {
+                "time_period": {
+                    "start": start_date.isoformat(),
+                    "end": end_date.isoformat()
+                },
+                "summary": {
+                    "total_categories": total_categories,
+                    "total_impressions": total_impressions,
+                    "total_clicks": total_clicks,
+                    "overall_ctr": overall_ctr,
+                    "trending_news_count": len(hot_news)
+                }
+            },
+            "category_trends": category_trends[:10],  # Top 10 categories
+            "hot_news": hot_news[:5],  # Top 5 trending
+            "performance": performance_stats,
+            "query_timestamp": datetime.utcnow().isoformat()
+        }), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# Advanced Spark Streaming Analytics Endpoints
+
+@app.route('/api/spark/start-trend-analysis', methods=['POST'])
+def start_trend_analysis():
+    """Start real-time trend analysis using Spark Streaming"""
+    global spark_analyzer
+    try:
+        query_id = spark_analyzer.start_real_time_trend_analysis()
+        return jsonify({
+            "message": "Real-time trend analysis started",
+            "query_id": query_id,
+            "timestamp": datetime.utcnow().isoformat()
+        }), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/spark/start-user-behavior', methods=['POST'])
+def start_user_behavior_analysis():
+    """Start real-time user behavior analysis using Spark Streaming"""
+    global spark_analyzer
+    try:
+        query_id = spark_analyzer.start_user_behavior_analysis()
+        return jsonify({
+            "message": "User behavior analysis started",
+            "query_id": query_id,
+            "timestamp": datetime.utcnow().isoformat()
+        }), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/spark/start-anomaly-detection', methods=['POST'])
+def start_anomaly_detection():
+    """Start anomaly detection using Spark Streaming"""
+    global spark_analyzer
+    try:
+        query_id = spark_analyzer.start_anomaly_detection()
+        return jsonify({
+            "message": "Anomaly detection started",
+            "query_id": query_id,
+            "timestamp": datetime.utcnow().isoformat()
+        }), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/spark/real-time-insights', methods=['GET'])
+def get_real_time_insights():
+    """Get real-time insights from Spark streaming data"""
+    global spark_analyzer
+    try:
+        if spark_analyzer is None:
+            return jsonify({"error": "Advanced Spark analyzer not available"}), 503
+        
+        query_type = request.args.get('type', 'overview')
+        insights = spark_analyzer.get_real_time_insights(query_type)
+        
+        return jsonify({
+            "insights": insights,
+            "query_type": query_type,
+            "timestamp": datetime.utcnow().isoformat()
+        }), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/spark/queries', methods=['GET'])
+def get_active_spark_queries():
+    """Get list of active Spark streaming queries"""
+    global spark_analyzer
+    try:
+        if spark_analyzer is None:
+            return jsonify({"error": "Advanced Spark analyzer not available"}), 503
+        
+        active_queries = spark_analyzer.get_active_queries()
+        return jsonify({
+            "active_queries": active_queries,
+            "total_count": len(active_queries),
+            "timestamp": datetime.utcnow().isoformat()
+        }), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/spark/queries/<query_id>', methods=['DELETE'])
+def stop_spark_query(query_id):
+    """Stop a specific Spark streaming query"""
+    global spark_analyzer
+    try:
+        if spark_analyzer is None:
+            return jsonify({"error": "Advanced Spark analyzer not available"}), 503
+        
+        success = spark_analyzer.stop_query(query_id)
+        if success:
+            return jsonify({
+                "message": f"Query {query_id} stopped successfully",
+                "timestamp": datetime.utcnow().isoformat()
+            }), 200
+        else:
+            return jsonify({
+                "error": f"Query {query_id} not found or failed to stop"
+            }), 404
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/spark/stop-all', methods=['POST'])
+def stop_all_spark_queries():
+    """Stop all active Spark streaming queries"""
+    global spark_analyzer
+    try:
+        if spark_analyzer is None:
+            return jsonify({"error": "Advanced Spark analyzer not available"}), 503
+        
+        spark_analyzer.stop_all_queries()
+        return jsonify({
+            "message": "All Spark queries stopped successfully",
+            "timestamp": datetime.utcnow().isoformat()
+        }), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 

@@ -1,50 +1,89 @@
-from sqlalchemy import create_engine, Column, String, Integer, Float, DateTime, JSON, Text
+from sqlalchemy import create_engine, Column, String, Integer, Float, DateTime, JSON, Text, Index, Boolean, func
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
-from datetime import datetime
+from datetime import datetime, timedelta
 import logging
 import os
-from typing import Dict, List
+from typing import Dict, List, Optional
+import time
 
 Base = declarative_base()
 
 class News(Base):
-    """News article table schema"""
+    """News article table schema with optimized indexing"""
     __tablename__ = 'news'
     
     news_id = Column(String, primary_key=True)
-    category = Column(String)
-    topic = Column(String)
+    category = Column(String, index=True)  # Index for category-based queries
+    topic = Column(String, index=True)     # Index for topic-based queries
     headline = Column(String)
     news_body = Column(Text)
     title_entity = Column(JSON)
     entity_content = Column(JSON)
+    
+    # Create composite indexes for common query patterns
+    __table_args__ = (
+        Index('idx_category_topic', 'category', 'topic'),
+    )
 
 class ExposureLog(Base):
-    """News exposure log table schema"""
+    """News exposure log table schema with optimized indexing"""
     __tablename__ = 'exposure_logs'
     
     impression_id = Column(String, primary_key=True)
-    user_id = Column(String)
-    timestamp = Column(DateTime)
-    news_id = Column(String)
-    # category = Column(String)
-    # headline = Column(String)
-    # topic = Column(String)
-    clicked = Column(Integer)
+    user_id = Column(String, index=True)  # Index for user-based queries
+    timestamp = Column(DateTime, index=True)  # Index for time-based queries
+    news_id = Column(String, index=True)  # Index for news-based queries
+    clicked = Column(Integer, index=True)  # Index for click analysis
     dwell_time = Column(Float)
-    processed_timestamp = Column(DateTime)
+    processed_timestamp = Column(DateTime, default=datetime.utcnow)
+    
+    # Create composite indexes for common query patterns
+    __table_args__ = (
+        Index('idx_user_timestamp', 'user_id', 'timestamp'),
+        Index('idx_news_timestamp', 'news_id', 'timestamp'),
+        Index('idx_clicked_timestamp', 'clicked', 'timestamp'),
+        Index('idx_user_clicked', 'user_id', 'clicked'),
+        Index('idx_news_clicked_timestamp', 'news_id', 'clicked', 'timestamp'),
+    )
+
+class QueryLog(Base):
+    """Query performance tracking table"""
+    __tablename__ = 'query_logs'
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    query_type = Column(String, index=True)  # Type of query executed
+    query_params = Column(JSON)  # Parameters used in the query
+    execution_time = Column(Float)  # Query execution time in seconds
+    result_count = Column(Integer)  # Number of results returned
+    timestamp = Column(DateTime, default=datetime.utcnow, index=True)
+    success = Column(Boolean, default=True, index=True)
+    error_message = Column(Text, nullable=True)
+    
+    __table_args__ = (
+        Index('idx_query_type_timestamp', 'query_type', 'timestamp'),
+        Index('idx_execution_time', 'execution_time'),
+    )
 
 class DatabaseConnection:
     def __init__(self):
-        """Initialize database connection"""
+        """Initialize database connection with optimized settings"""
         # Use PostgreSQL as the storage system
         # Check if running in Docker (POSTGRES_HOST env var is set)
         postgres_host = os.getenv('POSTGRES_HOST', 'localhost')
         postgres_port = os.getenv('POSTGRES_PORT', '15432' if postgres_host == 'localhost' else '5432')
         
         db_url = f'postgresql://newsuser:newspass@{postgres_host}:{postgres_port}/newsdb'
-        self.engine = create_engine(db_url)
+        
+        # Enhanced connection settings for performance
+        self.engine = create_engine(
+            db_url,
+            pool_size=20,  # Number of connections to maintain in pool
+            max_overflow=30,  # Additional connections allowed beyond pool_size
+            pool_timeout=30,  # Timeout for getting connection from pool
+            pool_recycle=3600,  # Recycle connections every hour
+            echo=False  # Set to True for SQL debugging
+        )
         
         # Create tables if they don't exist
         Base.metadata.create_all(self.engine)
@@ -55,6 +94,7 @@ class DatabaseConnection:
         
         # Set up logging
         self.logger = logging.getLogger(__name__)
+        self.logger.info("Database connection initialized with performance optimizations")
     
     def store_news_data(self, news_records: List[Dict]):
         """Store PENS news data in the database"""
@@ -70,8 +110,7 @@ class DatabaseConnection:
                     entity_content=record['Entity content']
                 )
                 self.session.merge(news)  # Use merge to handle updates of existing records
-                
-            self.session.flush()  # Force SQL execution before commit
+                self.session.flush()  # Force SQL execution before commit
             self.session.commit()
             self.logger.info(f"Successfully stored {len(news_records)} news articles")
             
@@ -114,6 +153,321 @@ class DatabaseConnection:
             self.session.rollback()
             self.logger.error(f"Error storing exposure log: {e}")
             raise
+    
+    def log_query_performance(self, query_type: str, query_params: Dict, 
+                            execution_time: float, result_count: int, 
+                            success: bool = True, error_message: str = None):
+        """Log query performance for monitoring and optimization"""
+        try:
+            query_log = QueryLog(
+                query_type=query_type,
+                query_params=query_params,
+                execution_time=execution_time,
+                result_count=result_count,
+                success=success,
+                error_message=error_message
+            )
+            self.session.add(query_log)
+            self.session.commit()
+        except Exception as e:
+            self.session.rollback()
+            self.logger.error(f"Error logging query performance: {e}")
+    
+    def execute_timed_query(self, query_type: str, query_func, **kwargs):
+        """Execute a query with timing and logging"""
+        start_time = time.time()
+        result = None
+        result_count = 0
+        success = True
+        error_message = None
+        
+        try:
+            result = query_func(**kwargs)
+            if hasattr(result, '__len__'):
+                result_count = len(result)
+            elif hasattr(result, 'count'):
+                result_count = result.count()
+            else:
+                result_count = 1 if result else 0
+                
+        except Exception as e:
+            success = False
+            error_message = str(e)
+            self.logger.error(f"Query failed: {query_type} - {error_message}")
+            raise
+        finally:
+            execution_time = time.time() - start_time
+            self.log_query_performance(
+                query_type=query_type,
+                query_params=kwargs,
+                execution_time=execution_time,
+                result_count=result_count,
+                success=success,
+                error_message=error_message
+            )
+            
+        return result
+    
+    # High-performance query methods for the required analytics
+    
+    def get_news_lifecycle(self, news_id: str, start_date: Optional[datetime] = None, 
+                          end_date: Optional[datetime] = None) -> List[Dict]:
+        """Query the lifecycle of a single news article - shows popularity changes over time"""
+        def _query(news_id, start_date, end_date):
+            query = self.session.query(
+                ExposureLog.timestamp,
+                func.count(ExposureLog.impression_id).label('total_impressions'),
+                func.sum(ExposureLog.clicked).label('total_clicks'),
+                func.avg(ExposureLog.dwell_time).label('avg_dwell_time'),
+                func.count(func.distinct(ExposureLog.user_id)).label('unique_users')
+            ).filter(ExposureLog.news_id == news_id)
+            
+            if start_date:
+                query = query.filter(ExposureLog.timestamp >= start_date)
+            if end_date:
+                query = query.filter(ExposureLog.timestamp <= end_date)
+            
+            # Group by hour for time series analysis
+            query = query.filter(ExposureLog.timestamp.isnot(None))
+            
+            results = query.group_by(
+                func.date_trunc('hour', ExposureLog.timestamp)
+            ).order_by(ExposureLog.timestamp).all()
+            
+            return [{
+                'timestamp': result.timestamp.isoformat() if result.timestamp else None,
+                'total_impressions': result.total_impressions,
+                'total_clicks': result.total_clicks or 0,
+                'avg_dwell_time': float(result.avg_dwell_time) if result.avg_dwell_time else 0,
+                'unique_users': result.unique_users,
+                'click_rate': (result.total_clicks or 0) / max(result.total_impressions, 1)
+            } for result in results]
+        
+        return self.execute_timed_query(
+            'news_lifecycle', _query, 
+            news_id=news_id, start_date=start_date, end_date=end_date        )
+    
+    def get_category_trends(self, start_date: Optional[datetime] = None,
+                           end_date: Optional[datetime] = None) -> List[Dict]:
+        """Statistical query on changes of news categories over time based on exposure data"""
+        def _query(start_date, end_date):
+            # Join with News table to get category information
+            # Use exposure timestamp since news doesn't have created_at
+            query = self.session.query(
+                News.category,
+                func.date_trunc('day', ExposureLog.timestamp).label('date'),
+                func.count(ExposureLog.impression_id).label('impressions'),
+                func.sum(ExposureLog.clicked).label('clicks'),
+                func.count(func.distinct(ExposureLog.user_id)).label('unique_users'),
+                func.count(func.distinct(ExposureLog.news_id)).label('unique_news')
+            ).join(News, ExposureLog.news_id == News.news_id)
+            
+            if start_date:
+                query = query.filter(ExposureLog.timestamp >= start_date)
+            if end_date:
+                query = query.filter(ExposureLog.timestamp <= end_date)
+            
+            results = query.group_by(
+                News.category, 
+                func.date_trunc('day', ExposureLog.timestamp)
+            ).order_by(News.category, func.date_trunc('day', ExposureLog.timestamp)).all()
+            
+            return [{
+                'category': result.category,
+                'date': result.date.isoformat() if result.date else None,
+                'impressions': result.impressions,
+                'clicks': result.clicks or 0,
+                'unique_users': result.unique_users,
+                'unique_news': result.unique_news,
+                'click_rate': (result.clicks or 0) / max(result.impressions, 1)
+            } for result in results]
+        
+        return self.execute_timed_query(
+            'category_trends', _query,
+            start_date=start_date, end_date=end_date
+        )
+    
+    def get_user_interest_changes(self, user_id: Optional[str] = None,
+                                 start_date: Optional[datetime] = None,
+                                 end_date: Optional[datetime] = None) -> List[Dict]:
+        """Statistical query on changes in user interests"""
+        def _query(user_id, start_date, end_date):
+            query = self.session.query(
+                ExposureLog.user_id,
+                News.category,
+                News.topic,
+                func.count(ExposureLog.impression_id).label('impressions'),
+                func.sum(ExposureLog.clicked).label('clicks'),
+                func.avg(ExposureLog.dwell_time).label('avg_dwell_time')
+            ).join(News, ExposureLog.news_id == News.news_id)
+            
+            if user_id:
+                query = query.filter(ExposureLog.user_id == user_id)
+            if start_date:
+                query = query.filter(ExposureLog.timestamp >= start_date)
+            if end_date:
+                query = query.filter(ExposureLog.timestamp <= end_date)
+            
+            results = query.group_by(
+                ExposureLog.user_id, News.category, News.topic
+            ).having(func.count(ExposureLog.impression_id) > 0).all()
+            
+            return [{
+                'user_id': result.user_id,
+                'category': result.category,
+                'topic': result.topic,
+                'impressions': result.impressions,
+                'clicks': result.clicks or 0,
+                'avg_dwell_time': float(result.avg_dwell_time) if result.avg_dwell_time else 0,
+                'engagement_score': ((result.clicks or 0) * 2 + 
+                                   (float(result.avg_dwell_time) if result.avg_dwell_time else 0) / 30) / max(result.impressions, 1)
+            } for result in results]
+        
+        return self.execute_timed_query(
+            'user_interest_changes', _query,
+            user_id=user_id, start_date=start_date, end_date=end_date
+        )
+    
+    def get_hot_news_prediction(self, hours_ahead: int = 24, min_impressions: int = 100) -> List[Dict]:
+        """Analyze what kind of news is most likely to become hot news"""
+        def _query(hours_ahead, min_impressions):
+            # Calculate recent performance metrics
+            recent_cutoff = datetime.utcnow() - timedelta(hours=hours_ahead)
+            
+            query = self.session.query(
+                News.news_id,
+                News.category,
+                News.topic,
+                News.headline,
+                func.count(ExposureLog.impression_id).label('impressions'),
+                func.sum(ExposureLog.clicked).label('clicks'),
+                func.count(func.distinct(ExposureLog.user_id)).label('unique_users'),
+                func.avg(ExposureLog.dwell_time).label('avg_dwell_time'),
+                (func.sum(ExposureLog.clicked) * 1.0 / func.count(ExposureLog.impression_id)).label('click_rate'),
+                (func.count(func.distinct(ExposureLog.user_id)) * 1.0 / func.count(ExposureLog.impression_id)).label('user_diversity')
+            ).join(ExposureLog, News.news_id == ExposureLog.news_id).filter(
+                ExposureLog.timestamp >= recent_cutoff
+            ).group_by(
+                News.news_id, News.category, News.topic, News.headline
+            ).having(
+                func.count(ExposureLog.impression_id) >= min_impressions
+            )
+            
+            results = query.order_by(
+                (func.sum(ExposureLog.clicked) * 1.0 / func.count(ExposureLog.impression_id)).desc()
+            ).limit(50).all()
+            
+            return [{
+                'news_id': result.news_id,
+                'category': result.category,
+                'topic': result.topic,
+                'headline': result.headline,
+                'impressions': result.impressions,
+                'clicks': result.clicks or 0,
+                'unique_users': result.unique_users,
+                'avg_dwell_time': float(result.avg_dwell_time) if result.avg_dwell_time else 0,
+                'click_rate': float(result.click_rate) if result.click_rate else 0,
+                'user_diversity': float(result.user_diversity) if result.user_diversity else 0,
+                'hotness_score': (
+                    (float(result.click_rate) if result.click_rate else 0) * 0.4 +
+                    (float(result.user_diversity) if result.user_diversity else 0) * 0.3 +
+                    min((float(result.avg_dwell_time) if result.avg_dwell_time else 0) / 100, 1) * 0.3
+                )
+            } for result in results]
+        
+        return self.execute_timed_query(
+            'hot_news_prediction', _query,
+            hours_ahead=hours_ahead, min_impressions=min_impressions
+        )
+    
+    def get_user_recommendations(self, user_id: str, limit: int = 10) -> List[Dict]:
+        """Real-time news recommendations based on user's browsing history"""
+        def _query(user_id, limit):
+            # Get user's preferred categories and topics based on click history
+            user_prefs = self.session.query(
+                News.category,
+                News.topic,
+                func.count(ExposureLog.clicked).label('clicks')
+            ).join(ExposureLog, News.news_id == ExposureLog.news_id).filter(
+                ExposureLog.user_id == user_id,
+                ExposureLog.clicked == 1
+            ).group_by(News.category, News.topic).order_by(
+                func.count(ExposureLog.clicked).desc()
+            ).limit(5).all()
+            
+            if not user_prefs:
+                # If no click history, return trending news
+                return self.get_hot_news_prediction(hours_ahead=6, min_impressions=50)[:limit]
+            
+            # Find similar news in preferred categories/topics that user hasn't seen
+            seen_news = self.session.query(ExposureLog.news_id).filter(
+                ExposureLog.user_id == user_id
+            ).subquery()
+            
+            pref_categories = [pref.category for pref in user_prefs]
+            pref_topics = [pref.topic for pref in user_prefs]
+            
+            query = self.session.query(
+                News.news_id,
+                News.category,
+                News.topic,
+                News.headline,
+                func.count(ExposureLog.impression_id).label('popularity'),
+                func.avg(ExposureLog.clicked * 1.0).label('avg_click_rate')
+            ).join(ExposureLog, News.news_id == ExposureLog.news_id).filter(
+                News.category.in_(pref_categories),
+                News.topic.in_(pref_topics),
+                ~News.news_id.in_(seen_news)
+            ).group_by(
+                News.news_id, News.category, News.topic, News.headline
+            ).order_by(
+                func.avg(ExposureLog.clicked * 1.0).desc(),
+                func.count(ExposureLog.impression_id).desc()
+            ).limit(limit).all()
+            
+            return [{
+                'news_id': result.news_id,
+                'category': result.category,
+                'topic': result.topic,
+                'headline': result.headline,
+                'popularity': result.popularity,
+                'predicted_interest': float(result.avg_click_rate) if result.avg_click_rate else 0
+            } for result in query]
+        
+        return self.execute_timed_query(
+            'user_recommendations', _query,
+            user_id=user_id, limit=limit
+        )
+    
+    def get_query_performance_stats(self, hours: int = 24) -> List[Dict]:
+        """Get query performance statistics for monitoring"""
+        def _query(hours):
+            cutoff = datetime.utcnow() - timedelta(hours=hours)
+            
+            results = self.session.query(
+                QueryLog.query_type,
+                func.count(QueryLog.id).label('total_queries'),
+                func.avg(QueryLog.execution_time).label('avg_execution_time'),
+                func.max(QueryLog.execution_time).label('max_execution_time'),
+                func.min(QueryLog.execution_time).label('min_execution_time'),
+                func.sum(func.cast(QueryLog.success == False, Integer)).label('failed_queries')
+            ).filter(
+                QueryLog.timestamp >= cutoff
+            ).group_by(QueryLog.query_type).all()
+            
+            return [{
+                'query_type': result.query_type,
+                'total_queries': result.total_queries,
+                'avg_execution_time': float(result.avg_execution_time) if result.avg_execution_time else 0,
+                'max_execution_time': float(result.max_execution_time) if result.max_execution_time else 0,
+                'min_execution_time': float(result.min_execution_time) if result.min_execution_time else 0,
+                'failed_queries': result.failed_queries or 0,
+                'success_rate': ((result.total_queries - (result.failed_queries or 0)) / max(result.total_queries, 1)) * 100
+            } for result in results]
+        
+        return self.execute_timed_query(
+            'performance_stats', _query, hours=hours
+        )
     
     def close(self):
         """Close the database session"""
