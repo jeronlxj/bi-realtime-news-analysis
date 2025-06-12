@@ -42,7 +42,7 @@ class ExposureLog(Base):
     """News exposure log table schema with optimized indexing"""
     __tablename__ = 'exposure_logs'
     
-    impression_id = Column(String, primary_key=True)
+    impression_id = Column(String, primary_key=True) # Part of composite primary key
     user_id = Column(String, primary_key=True)  # Part of composite primary key
     news_id = Column(String, primary_key=True)  # Part of composite primary key
     timestamp = Column(DateTime, index=True)  # Index for time-based queries
