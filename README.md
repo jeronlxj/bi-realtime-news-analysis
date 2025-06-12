@@ -148,6 +148,9 @@ You can verify the flow by:
 graph LR
     A[Python Dict] -->|Serialize| B[JSON String] -->|Encode| C[Bytes] -->|Network| D[Bytes] -->|Decode| E[JSON String] -->|Deserialize| F[Python Dict]
 
+## Improvements
+-Ensure simulator stops when trainreader finishes reading
+
 ## Contributing
 
 Contributions are welcome! Please open an issue or submit a pull request for any improvements or bug fixes.

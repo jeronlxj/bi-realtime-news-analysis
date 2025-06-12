@@ -43,9 +43,9 @@ class ExposureLog(Base):
     __tablename__ = 'exposure_logs'
     
     impression_id = Column(String, primary_key=True)
-    user_id = Column(String, index=True)  # Index for user-based queries
+    user_id = Column(String, primary_key=True)  # Part of composite primary key
+    news_id = Column(String, primary_key=True)  # Part of composite primary key
     timestamp = Column(DateTime, index=True)  # Index for time-based queries
-    news_id = Column(String, index=True)  # Index for news-based queries
     clicked = Column(Integer, index=True)  # Index for click analysis
     dwell_time = Column(Float)
     processed_timestamp = Column(DateTime)
@@ -68,7 +68,7 @@ class QueryLog(Base):
     query_params = Column(JSON)  # Parameters used in the query
     execution_time = Column(Float)  # Query execution time in seconds
     result_count = Column(Integer)  # Number of results returned
-    timestamp = Column(DateTime, default=datetime.utcnow, index=True)
+    timestamp = Column(DateTime, default=datetime.now, index=True)
     success = Column(Boolean, default=True, index=True)
     error_message = Column(Text, nullable=True)
     
@@ -346,7 +346,7 @@ class DatabaseConnection:
         """Analyze what kind of news is most likely to become hot news"""
         def _query(hours_ahead, min_impressions):
             # Calculate recent performance metrics
-            recent_cutoff = datetime.utcnow() - timedelta(hours=hours_ahead)
+            recent_cutoff = datetime.now() - timedelta(hours=hours_ahead)
             
             query = self.session.query(
                 News.news_id,
@@ -456,7 +456,7 @@ class DatabaseConnection:
     def get_query_performance_stats(self, hours: int = 24) -> List[Dict]:
         """Get query performance statistics for monitoring"""
         def _query(hours):
-            cutoff = datetime.utcnow() - timedelta(hours=hours)
+            cutoff = datetime.now() - timedelta(hours=hours)
             
             results = self.session.query(
                 QueryLog.query_type,
