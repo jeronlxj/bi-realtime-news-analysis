@@ -4,12 +4,14 @@ from etl.etl_pipeline import NewsETLPipeline
 from analysis.spark_analyzer import SparkNewsAnalyzer
 from storage.db import DatabaseConnection, News
 from simulation.simulator import NewsSimulator
+from utils.time_manager import get_time_manager
 import threading
 import time
 from kafka import KafkaAdminClient
 from kafka.errors import NoBrokersAvailable
 import psycopg2
 import os
+import pytz
 import traceback
 import socket
 from datetime import datetime, timedelta
@@ -19,6 +21,10 @@ CORS(app)  # Enable CORS for frontend communication
 
 def get_dataset_date_range(start_date_str=None, end_date_str=None):
     """Get default date range based on the PENS dataset if not provided"""
+    # Use the global time_manager instance
+    global time_manager
+    current_virtual_time = time_manager.get_current_time()
+    
     # Set default date ranges to match dataset period if not provided
     if not start_date_str:
         start_date = datetime(2019, 6, 14)  # Dataset starts from June 14, 2019
@@ -26,10 +32,19 @@ def get_dataset_date_range(start_date_str=None, end_date_str=None):
         start_date = datetime.fromisoformat(start_date_str)
         
     if not end_date_str:
-        end_date = datetime(2019, 7, 5)  # Dataset ends around July 4, 2019
+        # Use the current virtual time as the end date instead of a fixed date
+        # This ensures we're using the most current data available in our virtual timeline
+        end_date = current_virtual_time
+        
+        # Make sure we don't exceed the dataset's actual end date
+        max_dataset_date = datetime(2019, 7, 5)  # Dataset ends around July 5, 2019
+        if end_date > max_dataset_date:
+            end_date = max_dataset_date
+            print(f"Warning: Virtual time {current_virtual_time} exceeds dataset end date. Using {max_dataset_date} instead.")
     else:
         end_date = datetime.fromisoformat(end_date_str)
     
+    print(f"Using date range: {start_date} to {end_date} (virtual now: {current_virtual_time})")
     return start_date, end_date
 
 def wait_for_services():
@@ -134,6 +149,11 @@ def start_etl_pipeline():
 
 # Wait for services to be ready
 wait_for_services()
+
+# Initialize the time manager for virtual time - we should see only one initialization
+# as the TimeManager is a singleton
+time_manager = get_time_manager()
+print(f"Virtual time initialized to: {time_manager.get_current_time().strftime('%Y-%m-%d %H:%M:%S')}")
 
 # Initialize database connection
 db = DatabaseConnection()
@@ -271,7 +291,7 @@ def get_news_lifecycle(news_id):
         return jsonify({
             "news_id": news_id,
             "lifecycle_data": result,
-            "query_timestamp": datetime.now().isoformat()
+            "query_timestamp": datetime.now().replace(tzinfo=pytz.UTC).isoformat()
         }), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -289,7 +309,7 @@ def get_category_trends():
         result = db.get_category_trends(start_date, end_date)
         return jsonify({
             "trends": result,
-            "query_timestamp": datetime.now().isoformat()
+            "query_timestamp": datetime.now().replace(tzinfo=pytz.UTC).isoformat()
         }), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -308,7 +328,7 @@ def get_user_interests():
         result = db.get_user_interest_changes(user_id, start_date, end_date)
         return jsonify({
             "user_interests": result,
-            "query_timestamp": datetime.now().isoformat()
+            "query_timestamp": datetime.now().replace(tzinfo=pytz.UTC).isoformat()
         }), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -321,8 +341,7 @@ def get_hot_news():
         min_impressions = int(request.args.get('min_impressions', 10))
         
         # We need to pass a reference date within the dataset period
-        # Use July 3, 2019 as a reference point in the dataset
-        reference_date = datetime(2019, 7, 3)
+        reference_date = time_manager.get_current_time()
         
         result = db.get_hot_news_prediction(hours_ahead, min_impressions, reference_date)
         return jsonify({
@@ -332,7 +351,7 @@ def get_hot_news():
                 "min_impressions": min_impressions,
                 "reference_date": reference_date.isoformat()
             },
-            "query_timestamp": datetime.now().isoformat()
+            "query_timestamp": datetime.now().replace(tzinfo=pytz.UTC).isoformat()
         }), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -351,7 +370,7 @@ def get_recommendations(user_id):
             "user_id": user_id,
             "recommendations": result,
             "reference_date": reference_date.isoformat(),
-            "query_timestamp": datetime.now().isoformat()
+            "query_timestamp": datetime.now().replace(tzinfo=pytz.UTC).isoformat()
         }), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -369,7 +388,7 @@ def get_performance_stats():
         return jsonify({
             "performance_stats": result,
             "time_window_hours": hours,
-            "query_timestamp": datetime.now().isoformat()
+            "query_timestamp": datetime.now().replace(tzinfo=pytz.UTC).isoformat()
         }), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -383,7 +402,7 @@ def get_analytics_overview():
         
         # Gather multiple analytics in parallel
         category_trends = db.get_category_trends(start_date, end_date)
-        hot_news = db.get_hot_news_prediction(72, 10)
+        hot_news = db.get_hot_news_prediction(72, 10, time_manager.get_current_time())
         performance_stats = db.get_query_performance_stats(24)
         
         # Calculate summary statistics
@@ -409,7 +428,7 @@ def get_analytics_overview():
             "category_trends": category_trends[:10],  # Top 10 categories
             "hot_news": hot_news[:5],  # Top 5 trending
             "performance": performance_stats,
-            "query_timestamp": datetime.now().isoformat()
+            "query_timestamp": datetime.now().replace(tzinfo=pytz.UTC).isoformat()
         }), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -425,7 +444,7 @@ def start_trend_analysis():
         return jsonify({
             "message": "Real-time trend analysis started",
             "query_id": query_id,
-            "timestamp": datetime.now().isoformat()
+            "timestamp": datetime.now().replace(tzinfo=pytz.UTC).isoformat()
         }), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -439,7 +458,7 @@ def start_user_behavior_analysis():
         return jsonify({
             "message": "User behavior analysis started",
             "query_id": query_id,
-            "timestamp": datetime.now().isoformat()
+            "timestamp": datetime.now().replace(tzinfo=pytz.UTC).isoformat()
         }), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -453,7 +472,7 @@ def start_anomaly_detection():
         return jsonify({
             "message": "Anomaly detection started",
             "query_id": query_id,
-            "timestamp": datetime.now().isoformat()
+            "timestamp": datetime.now().replace(tzinfo=pytz.UTC).isoformat()
         }), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -472,7 +491,7 @@ def get_real_time_insights():
         return jsonify({
             "insights": insights,
             "query_type": query_type,
-            "timestamp": datetime.now().isoformat()
+            "timestamp": datetime.now().replace(tzinfo=pytz.UTC).isoformat()
         }), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -489,7 +508,7 @@ def get_active_spark_queries():
         return jsonify({
             "active_queries": active_queries,
             "total_count": len(active_queries),
-            "timestamp": datetime.now().isoformat()
+            "timestamp": datetime.now().replace(tzinfo=pytz.UTC).isoformat()
         }), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -506,7 +525,7 @@ def stop_spark_query(query_id):
         if success:
             return jsonify({
                 "message": f"Query {query_id} stopped successfully",
-                "timestamp": datetime.now().isoformat()
+                "timestamp": datetime.now().replace(tzinfo=pytz.UTC).isoformat()
             }), 200
         else:
             return jsonify({
@@ -526,10 +545,22 @@ def stop_all_spark_queries():
         spark_analyzer.stop_all_queries()
         return jsonify({
             "message": "All Spark queries stopped successfully",
-            "timestamp": datetime.now().isoformat()
+            "timestamp": datetime.now().replace(tzinfo=pytz.UTC).isoformat()
         }), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+@app.route('/api/time/current', methods=['GET'])
+def get_current_time():
+    """Return the current virtual time"""
+    current_virtual_time = time_manager.get_current_time()
+    
+    return jsonify({
+        "virtual_time": current_virtual_time.strftime("%Y-%m-%d %H:%M:%S"),
+        "virtual_timestamp": current_virtual_time.isoformat(),
+        "real_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "real_timestamp": datetime.now().replace(tzinfo=pytz.UTC).isoformat()
+    }), 200
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8000)

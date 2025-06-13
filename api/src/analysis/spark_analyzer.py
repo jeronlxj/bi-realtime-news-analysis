@@ -26,6 +26,7 @@ from pyspark.ml.pipeline import Pipeline
 from pyspark.ml import Pipeline as MLPipeline
 
 from utils.spark_manager import get_spark_manager
+from utils.time_manager import get_time_manager
 
 class SparkNewsAnalyzer:
     """Advanced Spark-based news analytics with real-time insights"""
@@ -36,6 +37,9 @@ class SparkNewsAnalyzer:
         self.spark_manager = get_spark_manager()
         self.spark = None
         self.active_queries: Dict[str, StreamingQuery] = {}
+        
+        # Initialize time manager for virtual time
+        self.time_manager = get_time_manager()
         
         # Define schemas for different data types
         self.exposure_log_schema = StructType([
@@ -120,13 +124,18 @@ class SparkNewsAnalyzer:
         )
         
         return processed_df
-    
     def start_real_time_trend_analysis(self) -> str:
-        """Start real-time trend analysis stream"""
+        """Start real-time trend analysis stream with virtual time awareness"""
         try:
             exposure_stream = self.create_exposure_stream()
             
+            # Get current virtual time window parameters
+            virtual_time = self.time_manager.get_current_time()
+            self.logger.info(f"Starting trend analysis stream with virtual time reference: {virtual_time}")
+            
             # Calculate real-time trends with 5-minute windows
+            # Note: The window function operates on the timestamp column regardless of our virtual time
+            # The data filtering will ensure we're only analyzing data within our virtual time range
             trend_analysis = exposure_stream \
                 .withWatermark("timestamp", "10 minutes") \
                 .groupBy(
@@ -144,7 +153,8 @@ class SparkNewsAnalyzer:
                     col("click_rate") * 0.4 + 
                     (col("unique_users") / col("impression_count")) * 0.3 +
                     (col("avg_dwell_time") / 100.0) * 0.3
-                )
+                ) \
+                .withColumn("virtual_time", lit(virtual_time.strftime("%Y-%m-%d %H:%M:%S")))
             
             # Write to console and optionally to another Kafka topic
             query = trend_analysis.writeStream \
@@ -163,11 +173,14 @@ class SparkNewsAnalyzer:
         except Exception as e:
             self.logger.error(f"Failed to start trend analysis: {e}")
             raise
-    
     def start_user_behavior_analysis(self) -> str:
-        """Start real-time user behavior pattern analysis"""
+        """Start real-time user behavior pattern analysis with virtual time awareness"""
         try:
             exposure_stream = self.create_exposure_stream()
+            
+            # Get current virtual time for reference
+            virtual_time = self.time_manager.get_current_time()
+            self.logger.info(f"Starting user behavior analysis stream with virtual time reference: {virtual_time}")
             
             # Analyze user behavior patterns
             user_behavior = exposure_stream \
@@ -190,7 +203,8 @@ class SparkNewsAnalyzer:
                 ) \
                 .withColumn("diversity_score",
                     col("unique_news_count") / col("total_impressions")
-                )
+                ) \
+                .withColumn("virtual_time", lit(virtual_time.strftime("%Y-%m-%d %H:%M:%S")))
             
             query = user_behavior.writeStream \
                 .outputMode("update") \
@@ -306,9 +320,8 @@ class SparkNewsAnalyzer:
         except Exception as e:
             self.logger.error(f"Failed to start content analysis: {e}")
             raise
-    
-    def get_real_time_insights(self, query_type: str = "overview") -> Dict:
-        """Get real-time insights using Spark streaming aggregations"""
+    def get_real_time_insights(self, query_type: str = "overview", hours: int = 1) -> Dict:
+        """Get real-time insights using Spark streaming aggregations with virtual time"""
         try:
             if not self.spark:
                 self.initialize_spark()
@@ -333,9 +346,12 @@ class SparkNewsAnalyzer:
                 "timestamp", col("timestamp").cast(TimestampType())
             )
             
-            # Filter for recent data (last hour)
-            recent_cutoff = datetime.now() - timedelta(hours=1)
-            recent_df = processed_df.filter(col("timestamp") >= lit(recent_cutoff))
+            # Use virtual time for filtering recent data
+            start_time, end_time = self.time_manager.get_time_window(hours=hours)
+            self.logger.info(f"Analyzing data from {start_time} to {end_time} (virtual time window)")
+            recent_df = processed_df.filter(
+                (col("timestamp") >= lit(start_time)) & (col("timestamp") <= lit(end_time))
+            )
             
             if query_type == "overview":
                 # Calculate overview metrics
@@ -346,6 +362,8 @@ class SparkNewsAnalyzer:
                     count(col("news_id").distinct()).alias("unique_news"),
                     avg("dwell_time").alias("avg_dwell_time")
                 ).collect()[0]
+                  # Use virtual time for timestamp
+                virtual_time = self.time_manager.get_current_time()
                 
                 return {
                     "total_impressions": overview["total_impressions"],
@@ -354,7 +372,9 @@ class SparkNewsAnalyzer:
                     "unique_news": overview["unique_news"],
                     "avg_dwell_time": float(overview["avg_dwell_time"]) if overview["avg_dwell_time"] else 0,
                     "overall_ctr": (overview["total_clicks"] / max(overview["total_impressions"], 1)) * 100,
-                    "timestamp": datetime.now().isoformat()
+                    "timestamp": virtual_time.isoformat(),
+                    "virtual_time": virtual_time.strftime("%Y-%m-%d %H:%M:%S"),
+                    "real_time": datetime.now().isoformat()
                 }
             
             elif query_type == "trending":
@@ -371,6 +391,8 @@ class SparkNewsAnalyzer:
                     .orderBy(desc("trend_score")) \
                     .limit(10) \
                     .collect()
+                  # Use virtual time for timestamp
+                virtual_time = self.time_manager.get_current_time()
                 
                 return {
                     "trending_news": [
@@ -382,7 +404,9 @@ class SparkNewsAnalyzer:
                             "trend_score": float(row["trend_score"])
                         } for row in trending
                     ],
-                    "timestamp": datetime.now().isoformat()
+                    "timestamp": virtual_time.isoformat(),
+                    "virtual_time": virtual_time.strftime("%Y-%m-%d %H:%M:%S"),
+                    "real_time": datetime.now().isoformat()
                 }
             
             return {"error": "Unknown query type"}

@@ -125,6 +125,10 @@ You can verify the flow by:
   docker network prune
   docker builder prune
   ```
+-Off WSL
+  ```
+  wsl --shutdown
+  ```
 ## Diagnosis
 -Spark Issues
   ```
@@ -141,7 +145,7 @@ You can verify the flow by:
   netsh winsock reset
   netsh int ip reset
   ```
---Restart your computer after running these commands
+  Restart your computer after running these commands
 
 ## Understanding 
 -Flow of Data
@@ -150,6 +154,18 @@ graph LR
 
 ## Improvements
 -Ensure simulator stops when trainreader finishes reading
+
+## Virtual Time System
+
+The system implements a virtual time mechanism to handle historical data analysis:
+
+- The dataset contains news exposure logs from June 14, 2019, to July 5, 2019.
+- When the backend starts, the system time is virtualized to begin at 2:00 AM on June 24, 2019.
+- As real time progresses, the virtual time advances at the same rate (1 real minute = 1 virtual minute).
+- The frontend displays both the virtual time and real time to help users understand the context.
+- All data analysis is performed within the virtual time context, ensuring that queries return relevant results from the historical dataset.
+
+This virtual time system allows for proper visualization and analysis of the historical data as if it were happening in real time.
 
 ## Contributing
 

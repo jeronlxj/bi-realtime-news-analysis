@@ -89,7 +89,7 @@ export const fetchUserInterests = async (userId = null, startDate = null, endDat
   }
 };
 
-export const fetchHotNews = async (hoursAhead = 24, minImpressions = 100) => {
+export const fetchHotNews = async (hoursAhead = 24, minImpressions = 50) => {
   try {
     const response = await api.get('/api/analytics/hot-news', {
       params: {
@@ -208,6 +208,17 @@ export const runETLPipeline = async () => {
     return response.data;
   } catch (error) {
     console.error('Error running ETL pipeline:', error);
+    throw error;
+  }
+};
+
+// Virtual time endpoint
+export const fetchVirtualTime = async () => {
+  try {
+    const response = await api.get('/api/time/current');
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching virtual time:', error);
     throw error;
   }
 };

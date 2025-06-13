@@ -9,7 +9,7 @@ const HotNews = () => {
   const [error, setError] = useState(null);
   const [filters, setFilters] = useState({
     hoursAhead: 24,
-    minImpressions: 100
+    minImpressions: 50
   });
   const [selectedNewsId, setSelectedNewsId] = useState(null);
 

@@ -1,0 +1,59 @@
+.virtual-clock {
+  display: flex;
+  justify-content: space-between;
+  background-color: #2c3e50;
+  border-radius: 8px;
+  padding: 15px;
+  margin-bottom: 20px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  color: white;
+}
+
+.virtual-clock.loading {
+  text-align: center;
+  padding: 20px;
+  font-style: italic;
+  opacity: 0.7;
+}
+
+.virtual-time, .real-time {
+  text-align: center;
+}
+
+.virtual-time {
+  flex: 2;
+  border-right: 1px solid rgba(255, 255, 255, 0.2);
+  padding-right: 15px;
+}
+
+.real-time {
+  flex: 1;
+  padding-left: 15px;
+}
+
+.time-display {
+  font-size: 1.8em;
+  font-weight: bold;
+  font-family: 'Courier New', monospace;
+  margin: 10px 0;
+  background-color: rgba(0, 0, 0, 0.2);
+  padding: 10px;
+  border-radius: 5px;
+}
+
+.time-display.small {
+  font-size: 1.2em;
+  opacity: 0.8;
+}
+
+.time-label {
+  font-size: 0.9em;
+  opacity: 0.7;
+  font-style: italic;
+}
+
+.virtual-clock h3 {
+  margin-top: 0;
+  border-bottom: 1px dashed rgba(255, 255, 255, 0.3);
+  padding-bottom: 5px;
+}

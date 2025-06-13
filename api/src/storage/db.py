@@ -352,7 +352,7 @@ class DatabaseConnection:
             user_id=user_id, start_date=start_date, end_date=end_date
         )
     
-    def get_hot_news_prediction(self, hours_ahead: int = 24, min_impressions: int = 100, 
+    def get_hot_news_prediction(self, hours_ahead: int = 24, min_impressions: int = 50, 
                                reference_date: Optional[datetime] = None) -> List[Dict]:
         """Analyze what kind of news is most likely to become hot news"""
         def _query(hours_ahead, min_impressions, reference_date):

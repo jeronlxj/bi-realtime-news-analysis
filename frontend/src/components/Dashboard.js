@@ -13,6 +13,7 @@ import {
 } from 'chart.js';
 import { Line, Bar, Doughnut } from 'react-chartjs-2';
 import './Dashboard.css';
+import VirtualClock from './VirtualClock';
 
 ChartJS.register(
   CategoryScale,
@@ -312,8 +313,7 @@ const Dashboard = () => {
   };
 
   return (
-    <div className="dashboard">
-      <header className="dashboard-header">
+    <div className="dashboard">      <header className="dashboard-header">
         <h1>📊 Real-Time News Analytics Dashboard</h1>
         <div className="dashboard-controls">
           <select 
@@ -394,11 +394,15 @@ const Dashboard = () => {
             </div>
           </div>
         </section>
+        {/* Virtual Clock */}
+        {/* <VirtualClock /> */}
 
+        {/* Footer with real-time status */}
         {/* Real-time Status */}
         <footer className="dashboard-footer">
           <div className="status-indicator">
             <span className="status-dot active"></span>
+            {/* Most recent time that page rendered */}
             <span>Live Data • Last Updated: {new Date().toLocaleTimeString()}</span>
           </div>
           <div className="data-info">
