@@ -21,6 +21,8 @@ def make_json_serializable(obj):
     else:
         return obj
 
+# news eg
+#
 class News(Base):
     """News article table schema with optimized indexing"""
     __tablename__ = 'news'
@@ -38,6 +40,8 @@ class News(Base):
         Index('idx_category_topic', 'category', 'topic'),
     )
 
+# exposure log eg 
+#"imp_0000001","U335175","N55476","2019-07-03 06:43:49",1,34,"2025-06-13 00:36:36.867769"
 class ExposureLog(Base):
     """News exposure log table schema with optimized indexing"""
     __tablename__ = 'exposure_logs'
@@ -59,6 +63,8 @@ class ExposureLog(Base):
         Index('idx_news_clicked_timestamp', 'news_id', 'clicked', 'timestamp'),
     )
 
+# query log eg
+#121,"performance_stats","{""hours"": 24}",0.002145528793334961,3,"2025-06-13 01:00:51.221505",true,[null]
 class QueryLog(Base):
     """Query performance tracking table"""
     __tablename__ = 'query_logs'
@@ -229,24 +235,24 @@ class DatabaseConnection:
         """Query the lifecycle of a single news article - shows popularity changes over time"""
         def _query(news_id, start_date, end_date):
             query = self.session.query(
-                ExposureLog.timestamp,
+                func.date_trunc('hour', ExposureLog.timestamp),
                 func.count(ExposureLog.impression_id).label('total_impressions'),
                 func.sum(ExposureLog.clicked).label('total_clicks'),
                 func.avg(ExposureLog.dwell_time).label('avg_dwell_time'),
                 func.count(func.distinct(ExposureLog.user_id)).label('unique_users')
             ).filter(ExposureLog.news_id == news_id)
-            
+
+            query = query.filter(ExposureLog.timestamp.isnot(None))
+
             if start_date:
                 query = query.filter(ExposureLog.timestamp >= start_date)
             if end_date:
                 query = query.filter(ExposureLog.timestamp <= end_date)
             
-            # Group by hour for time series analysis
-            query = query.filter(ExposureLog.timestamp.isnot(None))
-            
+            # Group by hour for time series analysis          
             results = query.group_by(
                 func.date_trunc('hour', ExposureLog.timestamp)
-            ).order_by(ExposureLog.timestamp).all()
+            ).order_by(func.date_trunc('hour', ExposureLog.timestamp)).all()
             
             return [{
                 'timestamp': result.timestamp.isoformat() if result.timestamp else None,
