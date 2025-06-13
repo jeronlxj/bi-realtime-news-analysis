@@ -11,10 +11,27 @@ from kafka import KafkaAdminClient
 from kafka.errors import NoBrokersAvailable
 import psycopg2
 import os
+import traceback
+import socket
 from datetime import datetime, timedelta
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for frontend communication
+
+def get_dataset_date_range(start_date_str=None, end_date_str=None):
+    """Get default date range based on the PENS dataset if not provided"""
+    # Set default date ranges to match dataset period if not provided
+    if not start_date_str:
+        start_date = datetime(2019, 6, 14)  # Dataset starts from June 14, 2019
+    else:
+        start_date = datetime.fromisoformat(start_date_str)
+        
+    if not end_date_str:
+        end_date = datetime(2019, 7, 5)  # Dataset ends around July 4, 2019
+    else:
+        end_date = datetime.fromisoformat(end_date_str)
+    
+    return start_date, end_date
 
 def wait_for_services():
     """Wait for Kafka, PostgreSQL, and Spark to be ready"""
@@ -219,8 +236,8 @@ def get_news_lifecycle(news_id):
         start_date_str = request.args.get('start_date')
         end_date_str = request.args.get('end_date')
         
-        start_date = datetime.fromisoformat(start_date_str) if start_date_str else None
-        end_date = datetime.fromisoformat(end_date_str) if end_date_str else None
+        # Use utility function to get appropriate date range
+        start_date, end_date = get_dataset_date_range(start_date_str, end_date_str)
         
         result = db.get_news_lifecycle(news_id, start_date, end_date)
         return jsonify({
@@ -238,8 +255,8 @@ def get_category_trends():
         start_date_str = request.args.get('start_date')
         end_date_str = request.args.get('end_date')
         
-        start_date = datetime.fromisoformat(start_date_str) if start_date_str else None
-        end_date = datetime.fromisoformat(end_date_str) if end_date_str else None
+        # Use utility function to get appropriate date range
+        start_date, end_date = get_dataset_date_range(start_date_str, end_date_str)
         
         result = db.get_category_trends(start_date, end_date)
         return jsonify({
@@ -257,8 +274,8 @@ def get_user_interests():
         start_date_str = request.args.get('start_date')
         end_date_str = request.args.get('end_date')
         
-        start_date = datetime.fromisoformat(start_date_str) if start_date_str else None
-        end_date = datetime.fromisoformat(end_date_str) if end_date_str else None
+        # Use utility function to get appropriate date range
+        start_date, end_date = get_dataset_date_range(start_date_str, end_date_str)
         
         result = db.get_user_interest_changes(user_id, start_date, end_date)
         return jsonify({
@@ -321,9 +338,8 @@ def get_performance_stats():
 def get_analytics_overview():
     """Get a comprehensive analytics overview for dashboard"""
     try:
-        # Get data for the last 24 hours
-        end_date = datetime.now()
-        start_date = end_date - timedelta(hours=24)
+        # Use utility function to get appropriate date range
+        start_date, end_date = get_dataset_date_range()
         
         # Gather multiple analytics in parallel
         category_trends = db.get_category_trends(start_date, end_date)
