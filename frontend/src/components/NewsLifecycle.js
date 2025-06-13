@@ -213,7 +213,7 @@ const NewsLifecycle = () => {
           {article.topic && <span className="topic-badge">{article.topic}</span>}
         </div>
         <div className="news-body">
-          {article.news_body || article.news_body_preview || 'No content available'}
+          {article.news_body_preview || 'No content available'}
         </div>
       </div>
     );

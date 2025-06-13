@@ -17,7 +17,7 @@ const Navbar = () => {
     { path: '/user-interests', label: 'User Interests' },
     { path: '/hot-news', label: 'Hot News' },
     { path: '/recommendations', label: 'Recommendations' },
-    { path: '/performance', label: 'Performance' },
+    { path: '/performance', label: 'Sys Performance' },
   ];
 
   return (

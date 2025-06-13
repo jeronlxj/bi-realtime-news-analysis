@@ -237,14 +237,13 @@ def get_news():
                 'category': news.category,
                 'topic': news.topic,
                 'headline': news.headline,
-                # Don't include full body by default to reduce payload size
+                'news_body': news.news_body,
                 'news_body_preview': (news.news_body[:150] + '...') if news.news_body and len(news.news_body) > 150 else news.news_body
             } for news in news_data]
             
             return jsonify({
                 'data': result,
                 'count': len(result),
-                'limit': limit,
                 'offset': offset,
                 'has_more': len(result) == limit
             }), 200

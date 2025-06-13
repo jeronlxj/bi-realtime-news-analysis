@@ -368,6 +368,7 @@ class DatabaseConnection:
                 News.category,
                 News.topic,
                 News.headline,
+                News.news_body,  # Added news_body field to the query
                 func.count(func.distinct(ExposureLog.impression_id)).label('impressions'),
                 func.sum(ExposureLog.clicked).label('clicks'),
                 func.count(func.distinct(ExposureLog.user_id)).label('unique_users'),
@@ -377,7 +378,7 @@ class DatabaseConnection:
             ).join(ExposureLog, News.news_id == ExposureLog.news_id).filter(
                 ExposureLog.timestamp >= recent_cutoff
             ).group_by(
-                News.news_id, News.category, News.topic, News.headline
+                News.news_id, News.category, News.topic, News.headline, News.news_body  # Added news_body to GROUP BY
             ).having(
                 func.count(func.distinct(ExposureLog.impression_id)) >= min_impressions
             )
@@ -391,6 +392,7 @@ class DatabaseConnection:
                 'category': result.category,
                 'topic': result.topic,
                 'headline': result.headline,
+                'news_body': result.news_body,  # Include news_body in the result
                 'impressions': result.impressions,
                 'clicks': result.clicks or 0,
                 'unique_users': result.unique_users,

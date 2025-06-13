@@ -202,7 +202,7 @@ const Recommendations = () => {
                   </div>
                   
                   <div className="recommendation-preview">
-                    {article.news_body?.substring(0, 150)}...
+                    {article.news_body_preview}...
                   </div>
                   
                   <div className="recommendation-stats">
