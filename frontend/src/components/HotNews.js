@@ -158,18 +158,18 @@ const HotNews = () => {
               </div>
               
               <div className="metric-item">
-                <div className="metric-label">Predicted Impressions</div>
-                <div className="metric-value">{newsItem.predicted_impressions?.toLocaleString() || 'N/A'}</div>
+                <div className="metric-label">Impressions</div>
+                <div className="metric-value">{newsItem.impressions?.toLocaleString() || 'N/A'}</div>
               </div>
               
               <div className="metric-item">
-                <div className="metric-label">Predicted Clicks</div>
-                <div className="metric-value">{newsItem.predicted_clicks?.toLocaleString() || 'N/A'}</div>
+                <div className="metric-label">Clicks</div>
+                <div className="metric-value">{newsItem.clicks?.toLocaleString() || 'N/A'}</div>
               </div>
               
               <div className="metric-item">
-                <div className="metric-label">Predicted CTR</div>
-                <div className="metric-value">{newsItem.predicted_ctr ? (newsItem.predicted_ctr * 100).toFixed(2) + '%' : 'N/A'}</div>
+                <div className="metric-label">CTR</div>
+                <div className="metric-value">{newsItem.click_rate ? (newsItem.click_rate * 100).toFixed(2) + '%' : 'N/A'}</div>
               </div>
             </div>
           </div>
@@ -274,11 +274,11 @@ const HotNews = () => {
                       </div>
                       <div className="metric">
                         <span className="metric-icon">👁️</span>
-                        <span className="metric-value">{news.predicted_impressions?.toLocaleString() || 'N/A'}</span>
+                        <span className="metric-value">{news.impressions?.toLocaleString() || 'N/A'}</span>
                       </div>
                       <div className="metric">
                         <span className="metric-icon">👆</span>
-                        <span className="metric-value">{news.predicted_clicks?.toLocaleString() || 'N/A'}</span>
+                        <span className="metric-value">{news.clicks?.toLocaleString() || 'N/A'}</span>
                       </div>
                     </div>
                   </div>

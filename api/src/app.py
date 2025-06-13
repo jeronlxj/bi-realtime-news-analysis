@@ -1,7 +1,6 @@
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 from etl.etl_pipeline import NewsETLPipeline
-from analysis.analyzer import NewsAnalyzer
 from analysis.spark_analyzer import SparkNewsAnalyzer
 from storage.db import DatabaseConnection, News
 from simulation.simulator import NewsSimulator
@@ -149,9 +148,7 @@ etl_pipeline = None
 # simulator_thread.start()
 
 try:    # Initialize Spark components with better error handling
-    print("Initializing Spark components...")    
-    analyzer = NewsAnalyzer(kafka_bootstrap_servers=os.getenv('KAFKA_BOOTSTRAP_SERVERS', 'kafka:9092'))
-    print("NewsAnalyzer initialized successfully")
+    print("Initializing Spark components...")
     
     # Initialize advanced Spark analyzer
     spark_analyzer = SparkNewsAnalyzer(kafka_bootstrap_servers=os.getenv('KAFKA_BOOTSTRAP_SERVERS', 'kafka:9092'))
@@ -324,8 +321,8 @@ def get_hot_news():
         min_impressions = int(request.args.get('min_impressions', 10))
         
         # We need to pass a reference date within the dataset period
-        # Use July 1, 2019 as a reference point in the dataset
-        reference_date = datetime(2019, 7, 1)
+        # Use July 3, 2019 as a reference point in the dataset
+        reference_date = datetime(2019, 7, 3)
         
         result = db.get_hot_news_prediction(hours_ahead, min_impressions, reference_date)
         return jsonify({
