@@ -24,7 +24,7 @@ const Navbar = () => {
     <nav className="navbar">
       <div className="navbar-logo">
         <Link to="/">
-          <span className="logo-text">NewsFlash</span>
+          <span className="logo-text">Jeron Liaw's</span>
           <span className="logo-accent">Analytics</span>
         </Link>
       </div>

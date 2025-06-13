@@ -240,7 +240,7 @@ class DatabaseConnection:
         def _query(news_id, start_date, end_date):
             query = self.session.query(
                 func.date_trunc('hour', ExposureLog.timestamp),
-                func.count(ExposureLog.impression_id).label('total_impressions'),
+                func.count(func.distinct(ExposureLog.impression_id)).label('total_impressions'),
                 func.sum(ExposureLog.clicked).label('total_clicks'),
                 func.avg(ExposureLog.dwell_time).label('avg_dwell_time'),
                 func.count(func.distinct(ExposureLog.user_id)).label('unique_users')
@@ -280,7 +280,7 @@ class DatabaseConnection:
             query = self.session.query(
                 News.category,
                 func.date_trunc('day', ExposureLog.timestamp).label('date'),
-                func.count(ExposureLog.impression_id).label('impressions'),
+                func.count(func.distinct(ExposureLog.impression_id)).label('impressions'),
                 func.sum(ExposureLog.clicked).label('clicks'),
                 func.count(func.distinct(ExposureLog.user_id)).label('unique_users'),
                 func.count(func.distinct(ExposureLog.news_id)).label('unique_news')
@@ -320,7 +320,7 @@ class DatabaseConnection:
                 ExposureLog.user_id,
                 News.category,
                 News.topic,
-                func.count(ExposureLog.impression_id).label('impressions'),
+                func.count(func.distinct(ExposureLog.impression_id)).label('impressions'),
                 func.sum(ExposureLog.clicked).label('clicks'),
                 func.avg(ExposureLog.dwell_time).label('avg_dwell_time')
             ).join(News, ExposureLog.news_id == News.news_id)
@@ -334,7 +334,7 @@ class DatabaseConnection:
             
             results = query.group_by(
                 ExposureLog.user_id, News.category, News.topic
-            ).having(func.count(ExposureLog.impression_id) > 0).all()
+            ).having(func.count(func.distinct(ExposureLog.impression_id)) > 0).all()
             
             return [{
                 'user_id': result.user_id,
@@ -352,33 +352,38 @@ class DatabaseConnection:
             user_id=user_id, start_date=start_date, end_date=end_date
         )
     
-    def get_hot_news_prediction(self, hours_ahead: int = 24, min_impressions: int = 100) -> List[Dict]:
+    def get_hot_news_prediction(self, hours_ahead: int = 24, min_impressions: int = 100, 
+                               reference_date: Optional[datetime] = None) -> List[Dict]:
         """Analyze what kind of news is most likely to become hot news"""
-        def _query(hours_ahead, min_impressions):
+        def _query(hours_ahead, min_impressions, reference_date):
+            # Use provided reference date or default to current time
+            # This allows testing with historical dataset
+            ref_date = reference_date if reference_date else datetime.now()
+            
             # Calculate recent performance metrics
-            recent_cutoff = datetime.now() - timedelta(hours=hours_ahead)
+            recent_cutoff = ref_date - timedelta(hours=hours_ahead)
             
             query = self.session.query(
                 News.news_id,
                 News.category,
                 News.topic,
                 News.headline,
-                func.count(ExposureLog.impression_id).label('impressions'),
+                func.count(func.distinct(ExposureLog.impression_id)).label('impressions'),
                 func.sum(ExposureLog.clicked).label('clicks'),
                 func.count(func.distinct(ExposureLog.user_id)).label('unique_users'),
                 func.avg(ExposureLog.dwell_time).label('avg_dwell_time'),
-                (func.sum(ExposureLog.clicked) * 1.0 / func.count(ExposureLog.impression_id)).label('click_rate'),
-                (func.count(func.distinct(ExposureLog.user_id)) * 1.0 / func.count(ExposureLog.impression_id)).label('user_diversity')
+                (func.sum(ExposureLog.clicked) * 1.0 / func.count(func.distinct(ExposureLog.impression_id))).label('click_rate'),
+                (func.count(func.distinct(ExposureLog.user_id)) * 1.0 / func.count(func.distinct(ExposureLog.impression_id))).label('user_diversity')
             ).join(ExposureLog, News.news_id == ExposureLog.news_id).filter(
                 ExposureLog.timestamp >= recent_cutoff
             ).group_by(
                 News.news_id, News.category, News.topic, News.headline
             ).having(
-                func.count(ExposureLog.impression_id) >= min_impressions
+                func.count(func.distinct(ExposureLog.impression_id)) >= min_impressions
             )
             
             results = query.order_by(
-                (func.sum(ExposureLog.clicked) * 1.0 / func.count(ExposureLog.impression_id)).desc()
+                (func.sum(ExposureLog.clicked) * 1.0 / func.count(func.distinct(ExposureLog.impression_id))).desc()
             ).limit(50).all()
             
             return [{
@@ -401,12 +406,13 @@ class DatabaseConnection:
         
         return self.execute_timed_query(
             'hot_news_prediction', _query,
-            hours_ahead=hours_ahead, min_impressions=min_impressions
+            hours_ahead=hours_ahead, min_impressions=min_impressions, reference_date=reference_date
         )
     
-    def get_user_recommendations(self, user_id: str, limit: int = 10) -> List[Dict]:
+    def get_user_recommendations(self, user_id: str, limit: int = 10, 
+                               reference_date: Optional[datetime] = None) -> List[Dict]:
         """Real-time news recommendations based on user's browsing history"""
-        def _query(user_id, limit):
+        def _query(user_id, limit, reference_date):
             # Get user's preferred categories and topics based on click history
             user_prefs = self.session.query(
                 News.category,
@@ -421,7 +427,7 @@ class DatabaseConnection:
             
             if not user_prefs:
                 # If no click history, return trending news
-                return self.get_hot_news_prediction(hours_ahead=6, min_impressions=50)[:limit]
+                return self.get_hot_news_prediction(hours_ahead=6, min_impressions=50, reference_date=reference_date)[:limit]
             
             # Find similar news in preferred categories/topics that user hasn't seen
             seen_news = self.session.query(ExposureLog.news_id).filter(
@@ -436,7 +442,7 @@ class DatabaseConnection:
                 News.category,
                 News.topic,
                 News.headline,
-                func.count(ExposureLog.impression_id).label('popularity'),
+                func.count(func.distinct(ExposureLog.impression_id)).label('popularity'),
                 func.avg(ExposureLog.clicked * 1.0).label('avg_click_rate')
             ).join(ExposureLog, News.news_id == ExposureLog.news_id).filter(
                 News.category.in_(pref_categories),
@@ -446,7 +452,7 @@ class DatabaseConnection:
                 News.news_id, News.category, News.topic, News.headline
             ).order_by(
                 func.avg(ExposureLog.clicked * 1.0).desc(),
-                func.count(ExposureLog.impression_id).desc()
+                func.count(func.distinct(ExposureLog.impression_id)).desc()
             ).limit(limit).all()
             
             return [{
@@ -460,7 +466,7 @@ class DatabaseConnection:
         
         return self.execute_timed_query(
             'user_recommendations', _query,
-            user_id=user_id, limit=limit
+            user_id=user_id, limit=limit, reference_date=reference_date
         )
     
     def get_query_performance_stats(self, hours: int = 24) -> List[Dict]:

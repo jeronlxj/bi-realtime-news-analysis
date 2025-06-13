@@ -15,11 +15,17 @@ const NewsLifecycle = () => {
   useEffect(() => {
     const getNewsArticles = async () => {
       try {
+        setLoading(true);
         const data = await fetchNewsData();
-        setNewsArticles(data);
+        // Ensure newsArticles is always an array
+        setNewsArticles(Array.isArray(data) ? data : []);
       } catch (err) {
         setError('Failed to load news articles');
         console.error('Error fetching news articles:', err);
+        // Set empty array on error to prevent map errors
+        setNewsArticles([]);
+      } finally {
+        setLoading(false);
       }
     };
 
@@ -194,17 +200,21 @@ const NewsLifecycle = () => {
   const getSelectedNewsDetails = () => {
     if (!selectedNewsId) return null;
     
-    const article = newsArticles.find(article => article.news_id === selectedNewsId);
+    // Handle potential undefined newsArticles or ensure it's an array
+    const articles = Array.isArray(newsArticles) ? newsArticles : [];
+    const article = articles.find(article => article.news_id === selectedNewsId);
     if (!article) return null;
     
     return (
       <div className="news-details">
-        <h3>{article.headline}</h3>
+        <h3>{article.headline || 'Untitled Article'}</h3>
         <div className="news-meta">
-          <span className="category-badge">{article.category}</span>
+          <span className="category-badge">{article.category || 'Uncategorized'}</span>
           {article.topic && <span className="topic-badge">{article.topic}</span>}
         </div>
-        <div className="news-body">{article.news_body}</div>
+        <div className="news-body">
+          {article.news_body || article.news_body_preview || 'No content available'}
+        </div>
       </div>
     );
   };
@@ -223,13 +233,20 @@ const NewsLifecycle = () => {
             value={selectedNewsId} 
             onChange={handleNewsSelect}
             className="select-input"
+            disabled={loading}
           >
-            <option value="">Select an article</option>
-            {newsArticles.map(article => (
-              <option key={article.news_id} value={article.news_id}>
-                {article.headline.substring(0, 60)}...
-              </option>
-            ))}
+            <option value="">
+              {loading ? 'Loading articles...' : 'Select an article'}
+            </option>
+            {Array.isArray(newsArticles) && newsArticles.length > 0 ? (
+              newsArticles.map(article => (
+                <option key={article.news_id} value={article.news_id}>
+                  {article.headline ? article.headline.substring(0, 60) + '...' : 'Unnamed article'}
+                </option>
+              ))
+            ) : !loading && (
+              <option disabled value="">No articles found</option>
+            )}
           </select>
         </div>
 

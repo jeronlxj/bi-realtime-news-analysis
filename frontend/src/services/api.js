@@ -15,7 +15,8 @@ const api = axios.create({
 export const fetchNewsData = async () => {
   try {
     const response = await api.get('/api/news');
-    return response.data;
+    // Extract the data array from the response object
+    return response.data.data || [];
   } catch (error) {
     console.error('Error fetching news data:', error);
     throw error;

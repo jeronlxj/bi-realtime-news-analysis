@@ -32,8 +32,11 @@ const Recommendations = () => {
       // For now, we'll simulate recommendations by fetching some news articles
       const data = await fetchNewsData();
       
+      // Ensure we have an array even if API response format changed
+      const newsArticles = Array.isArray(data) ? data : [];
+      
       // Simulate personalization by randomly selecting and sorting articles
-      const randomSelectedNews = [...data]
+      const randomSelectedNews = [...newsArticles]
         .sort(() => 0.5 - Math.random())
         .slice(0, limitCount)
         .map(article => ({

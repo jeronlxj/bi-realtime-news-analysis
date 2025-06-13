@@ -213,18 +213,50 @@ def analyze():
 def get_news():
     """Get news data from the database"""
     try:
-        with db.session.begin():
-            news_data = db.session.query(News).all()
+        # Add pagination parameters with defaults
+        limit = int(request.args.get('limit', 50))
+        offset = int(request.args.get('offset', 0))
+        category = request.args.get('category')
+        
+        # Basic logging for debugging
+        print(f"Fetching news with limit={limit}, offset={offset}, category={category}")
+        
+        try:
+            query = db.session.query(News)
+            
+            # Add category filter if provided
+            if category:
+                query = query.filter(News.category == category)
+            
+            # Add pagination
+            news_data = query.limit(limit).offset(offset).all()
+            
             # Convert to dictionary format
             result = [{
                 'news_id': news.news_id,
                 'category': news.category,
                 'topic': news.topic,
                 'headline': news.headline,
-                'news_body': news.news_body
+                # Don't include full body by default to reduce payload size
+                'news_body_preview': (news.news_body[:150] + '...') if news.news_body and len(news.news_body) > 150 else news.news_body
             } for news in news_data]
-        return jsonify(result), 200
+            
+            return jsonify({
+                'data': result,
+                'count': len(result),
+                'limit': limit,
+                'offset': offset,
+                'has_more': len(result) == limit
+            }), 200
+        except Exception as e:
+            print(f"Database error: {str(e)}")
+            import traceback
+            print(traceback.format_exc())
+            return jsonify({"error": f"Database error: {str(e)}"}), 500
     except Exception as e:
+        print(f"General error in get_news: {str(e)}")
+        import traceback
+        print(traceback.format_exc())
         return jsonify({"error": str(e)}), 500
 
 # New high-performance analytics endpoints
@@ -289,15 +321,20 @@ def get_user_interests():
 def get_hot_news():
     """Get hot news prediction analysis"""
     try:
-        hours_ahead = int(request.args.get('hours_ahead', 24))
-        min_impressions = int(request.args.get('min_impressions', 100))
+        hours_ahead = int(request.args.get('hours_ahead', 72))
+        min_impressions = int(request.args.get('min_impressions', 10))
         
-        result = db.get_hot_news_prediction(hours_ahead, min_impressions)
+        # We need to pass a reference date within the dataset period
+        # Use July 1, 2019 as a reference point in the dataset
+        reference_date = datetime(2019, 7, 1)
+        
+        result = db.get_hot_news_prediction(hours_ahead, min_impressions, reference_date)
         return jsonify({
             "hot_news": result,
             "prediction_parameters": {
                 "hours_ahead": hours_ahead,
-                "min_impressions": min_impressions
+                "min_impressions": min_impressions,
+                "reference_date": reference_date.isoformat()
             },
             "query_timestamp": datetime.now().isoformat()
         }), 200
@@ -310,10 +347,14 @@ def get_recommendations(user_id):
     try:
         limit = int(request.args.get('limit', 10))
         
-        result = db.get_user_recommendations(user_id, limit)
+        # Use dataset date for reference
+        reference_date = datetime(2019, 7, 1)
+        
+        result = db.get_user_recommendations(user_id, limit, reference_date)
         return jsonify({
             "user_id": user_id,
             "recommendations": result,
+            "reference_date": reference_date.isoformat(),
             "query_timestamp": datetime.now().isoformat()
         }), 200
     except Exception as e:
@@ -324,6 +365,9 @@ def get_performance_stats():
     """Get query performance statistics"""
     try:
         hours = int(request.args.get('hours', 24))
+        
+        # Use current date as reference since query logs are from current system
+        # No need to use historical dates since performance metrics are about API usage
         
         result = db.get_query_performance_stats(hours)
         return jsonify({
@@ -343,7 +387,7 @@ def get_analytics_overview():
         
         # Gather multiple analytics in parallel
         category_trends = db.get_category_trends(start_date, end_date)
-        hot_news = db.get_hot_news_prediction(24, 50)
+        hot_news = db.get_hot_news_prediction(72, 10)
         performance_stats = db.get_query_performance_stats(24)
         
         # Calculate summary statistics
