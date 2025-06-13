@@ -121,9 +121,9 @@ You can verify the flow by:
 -Clean up docker
   ```
   docker-compose down --remove-orphans
-  docker builder prune
-  docker network prune
   docker volume prune
+  docker network prune
+  docker builder prune
   ```
 ## Diagnosis
 -Spark Issues

@@ -21,8 +21,8 @@ def make_json_serializable(obj):
     else:
         return obj
 
-# news eg
-#
+# news first 4 cols eg
+#"N89995","travel","traveltripideas","The Most Scenic Drive in Every State"
 class News(Base):
     """News article table schema with optimized indexing"""
     __tablename__ = 'news'
@@ -128,12 +128,14 @@ class DatabaseConnection:
                     entity_content=record['Entity content']
                 )
                 self.session.merge(news)  # Use merge to handle updates of existing records
-                self.session.flush()  # Force SQL execution before commit
+                # self.session.flush()  # Force SQL execution before commit
             self.session.commit()
             self.logger.info(f"Successfully stored {len(news_records)} news articles")
             
         except Exception as e:
-            self.session.rollback()
+            # Only rollback if the session is still active
+            if self.session.is_active:
+                self.session.rollback()
             self.logger.error(f"Error storing news data: {e}")
             raise
     
@@ -156,7 +158,7 @@ class DatabaseConnection:
             )
             
             self.session.merge(exposure_log)
-            self.session.flush()  # Force SQL execution before commit
+            # self.session.flush()  # Force SQL execution before commit
         
             # Verify the record exists
             verification = self.session.query(ExposureLog).filter_by(
@@ -168,7 +170,9 @@ class DatabaseConnection:
             # self.logger.info(f"Successfully committed log: {log['impression_id']}")
             
         except Exception as e:
-            self.session.rollback()
+            # Only rollback if the session is still active
+            if self.session.is_active:
+                self.session.rollback()
             self.logger.error(f"Error storing exposure log: {e}")
             raise
     def log_query_performance(self, query_type: str, query_params: Dict, 
