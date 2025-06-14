@@ -129,10 +129,10 @@ You can verify the flow by:
   ```
   wsl --shutdown
   ```
-## Diagnosis
--Spark Issues
+## Development
+-Build and restart an already running service
   ```
-  .\test_spark_setup.ps1
+  docker-compose up --build SERVICE_NAME
   ```
 ## Fixing
 -Port Issues

@@ -407,7 +407,7 @@ const Dashboard = () => {
           </div>
           <div className="data-info">
             {analyticsData?.query_timestamp && 
-              `Data as of: ${new Date(analyticsData.query_timestamp).toLocaleString()}`
+              `Data as of: ${new Date(analyticsData.query_timestamp).toLocaleString()} (virtual time is ${new Date(analyticsData.virtual_timestamp).toLocaleString()})`
             }
           </div>
         </footer>

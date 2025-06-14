@@ -428,7 +428,8 @@ def get_analytics_overview():
             "category_trends": category_trends[:10],  # Top 10 categories
             "hot_news": hot_news[:5],  # Top 5 trending
             "performance": performance_stats,
-            "query_timestamp": datetime.now().replace(tzinfo=pytz.UTC).isoformat()
+            "query_timestamp": datetime.now().replace(tzinfo=pytz.UTC).isoformat(),
+            "virtual_timestamp": time_manager.get_current_time().isoformat()
         }), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
