@@ -425,7 +425,7 @@ def get_analytics_overview():
                     "trending_news_count": len(hot_news)
                 }
             },
-            "category_trends": category_trends[:10],  # Top 10 category_days
+            "category_trends": category_trends[:50],  # Top 10 category_days
             "hot_news": hot_news[:5],  # Top 5 trending
             "performance": performance_stats,
             "query_timestamp": datetime.now().replace(tzinfo=pytz.UTC).isoformat(),
