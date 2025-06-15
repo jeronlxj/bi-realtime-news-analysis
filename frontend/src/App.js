@@ -7,6 +7,7 @@ import UserInterests from './components/UserInterests';
 import HotNews from './components/HotNews';
 import Recommendations from './components/Recommendations';
 import Performance from './components/Performance';
+import AIBIAgent from './components/AIBIAgent';
 import Navbar from './components/Navbar';
 import './styles/App.css';
 
@@ -25,6 +26,7 @@ function App() {
             <Route path="/hot-news" element={<HotNews />} />
             <Route path="/recommendations" element={<Recommendations />} />
             <Route path="/performance" element={<Performance />} />
+            <Route path="/ai-assistant" element={<AIBIAgent />} />
           </Routes>
         </main>
       </div>

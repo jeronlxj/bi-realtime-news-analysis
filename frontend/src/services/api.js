@@ -223,6 +223,17 @@ export const fetchVirtualTime = async () => {
   }
 };
 
+// AI/BI Agent endpoint
+export const queryAIBIAgent = async (query) => {
+  try {
+    const response = await api.post('/api/ai-query', { query });
+    return response.data;
+  } catch (error) {
+    console.error('Error querying AI/BI agent:', error);
+    throw error;
+  }
+};
+
 // Utility functions
 export const formatDate = (date) => {
   if (!date) return null;

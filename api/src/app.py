@@ -14,10 +14,26 @@ import os
 import pytz
 import traceback
 import socket
+import google.generativeai as genai
 from datetime import datetime, timedelta
+import json
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for frontend communication
+
+# Initialize Gemini API
+def initialize_gemini():
+    api_key = os.getenv('GEMINI_API_KEY', '')
+    if api_key:
+        genai.configure(api_key=api_key)
+        print("Gemini API initialized successfully")
+        return True
+    else:
+        print("Warning: Gemini API key not found. AI/BI agent will not work properly.")
+        return False
+
+# Initialize Gemini when the app starts
+gemini_initialized = initialize_gemini()
 
 def get_dataset_date_range(start_date_str=None, end_date_str=None):
     """Get default date range based on the PENS dataset if not provided"""
@@ -562,6 +578,180 @@ def get_current_time():
         "real_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "real_timestamp": datetime.now().replace(tzinfo=pytz.UTC).isoformat()
     }), 200
+
+# AI/BI Agent Endpoint
+
+@app.route('/api/ai-query', methods=['POST'])
+def ai_query_v2():
+    """Process natural language queries using Gemini API and return database results"""
+    try:
+        if not gemini_initialized:
+            return jsonify({
+                'success': False,
+                'error': 'Gemini API not initialized. Check API key configuration.'
+            }), 500
+        
+        # Get the natural language query from the request
+        data = request.json
+        if not data or 'query' not in data:
+            return jsonify({
+                'success': False,
+                'error': 'No query provided'
+            }), 400
+        
+        nlquery = data['query']
+        
+        # Database schema information to provide context to the model
+        schema_info = """
+        Database tables:
+        1. exposure_logs - Contains information about user interactions with news articles
+           - impression_id: unique identifier for the exposure event
+           - user_id: identifier for the user
+           - news_id: identifier for the news article
+           - timestamp: when the exposure occurred
+           - clicked: whether the user clicked the article (1) or not (0)
+           - dwell_time: how long the user spent on the article (seconds)
+           - processed_timestamp: when this log was processed
+
+        2. news - Contains information about news articles
+           - news_id: unique identifier for the article
+           - category: article category (e.g., politics, sports)
+           - topic: specific topic within the category
+           - headline: article headline
+           - news_body: full article text
+           - title_entity: JSON containing entities mentioned in the title
+           - entity_content: JSON containing entities mentioned in the content
+
+        Note: The data spans from June 14, 2019 to July 5, 2019.
+        Current virtual time is: {current_time}
+        """
+        
+        # Get current virtual time
+        current_time = time_manager.get_current_time().strftime("%Y-%m-%d %H:%M:%S")
+        schema_info = schema_info.format(current_time=current_time)
+        
+        # Prepare prompt for Gemini
+        prompt = f"""
+        You are a data analyst assistant for a news analytics system. 
+        Convert the following natural language query into a valid SQL query for PostgreSQL.
+        ONLY return the raw SQL query without any markdown formatting, quotes, or explanation.
+        Do not include ```sql or ``` markers in your response.
+        
+        {schema_info}
+        
+        User query: "{nlquery}"
+        
+        SQL query:
+        """
+        
+        # Generate SQL with Gemini
+        sql_query = ""
+        if gemini_initialized:
+            try:
+                model = genai.GenerativeModel('gemini-2.0-flash')
+                response = model.generate_content(prompt)
+                sql_query = response.text.strip()
+                # Remove any potential markdown code block syntax
+                if sql_query.startswith("```"):
+                    sql_query = sql_query.split("```")[1]
+                    if sql_query.startswith("sql"):
+                        sql_query = sql_query[3:].strip()
+                if sql_query.endswith("```"):
+                    sql_query = sql_query[:-3].strip()
+                print(f"Generated SQL query: {sql_query}")
+            except Exception as e:
+                print(f"Error generating SQL with Gemini: {e}")
+                return jsonify({
+                    'success': False,
+                    'error': f'Error generating SQL query: {str(e)}'
+                }), 500
+        else:
+            # Fallback if Gemini is not initialized
+            # Simple mapping for common queries (very limited)
+            if "most popular news" in nlquery.lower():
+                sql_query = """
+                SELECT n.headline, n.category, COUNT(e.news_id) as view_count 
+                FROM news n JOIN exposure_logs e ON n.news_id = e.news_id 
+                GROUP BY n.news_id, n.headline, n.category 
+                ORDER BY view_count DESC LIMIT 10
+                """
+            else:
+                return jsonify({
+                    'success': False,
+                    'error': 'Cannot process query without Gemini API. Please configure API key.'
+                }), 500
+        
+        # Execute the SQL query
+        try:
+            # Connect to the database
+            db_host = os.getenv('POSTGRES_HOST', 'postgres')
+            conn = psycopg2.connect(
+                dbname="newsdb",
+                user="newsuser", 
+                password="newspass",
+                host=db_host
+            )
+            cursor = conn.cursor()
+            
+            # Execute the query with a timeout
+            cursor.execute("SET statement_timeout = '60s'")
+            cursor.execute(sql_query)
+            
+            # Get column names
+            columns = [desc[0] for desc in cursor.description]
+            
+            # Fetch results
+            results = cursor.fetchall()
+            
+            # Convert results to list of dictionaries
+            formatted_results = []
+            for row in results:
+                row_dict = {}
+                for i, col in enumerate(columns):
+                    # Handle JSON fields
+                    if isinstance(row[i], dict) or (isinstance(row[i], str) and (row[i].startswith('{') or row[i].startswith('['))):
+                        try:
+                            row_dict[col] = json.loads(row[i]) if isinstance(row[i], str) else row[i]
+                        except json.JSONDecodeError:
+                            row_dict[col] = row[i]
+                    else:
+                        # Handle datetime objects
+                        if isinstance(row[i], datetime):
+                            row_dict[col] = row[i].isoformat()
+                        else:
+                            row_dict[col] = row[i]
+                formatted_results.append(row_dict)
+            
+            cursor.close()
+            conn.close()
+            
+            return jsonify({
+                'success': True,
+                'query': nlquery,
+                'sql': sql_query,
+                'columns': columns,
+                'results': formatted_results[:10]
+            })
+            
+        except Exception as e:
+            print(f"Error executing SQL query: {e}")
+            # Log the failed query
+            error_msg = str(e)
+            
+            return jsonify({
+                'success': False,
+                'query': nlquery,
+                'sql': sql_query,
+                'error': f'Error executing query: {error_msg}'
+            }), 500
+            
+    except Exception as e:
+        print(f"Unexpected error in AI query endpoint: {e}")
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': f'Unexpected error: {str(e)}'
+        }), 500
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8000)

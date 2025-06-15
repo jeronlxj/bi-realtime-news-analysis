@@ -111,10 +111,13 @@ services:
         condition: service_started
     ports:
       - "8000:8000"
+    env_file:
+      - ./.env
     environment:
       - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
       - POSTGRES_HOST=postgres
       - SPARK_MASTER_URL=spark://spark:7077
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
     volumes:
       - ./api:/app
       - ./data:/data

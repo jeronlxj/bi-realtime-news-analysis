@@ -13,3 +13,6 @@ confluent-kafka==2.10.0
 
 pytest==8.4.0
 pytest-cov==6.1.1
+
+# AI/BI Agent dependencies
+google-generativeai==0.8.5

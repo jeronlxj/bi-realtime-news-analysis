@@ -17,6 +17,7 @@ const Navbar = () => {
     { path: '/user-interests', label: 'User Interests' },
     { path: '/hot-news', label: 'Hot News' },
     { path: '/recommendations', label: 'Recommendations' },
+    { path: '/ai-assistant', label: 'AI Chat' },
     { path: '/performance', label: 'Sys Performance' },
   ];
 
