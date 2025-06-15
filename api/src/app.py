@@ -337,8 +337,8 @@ def get_user_interests():
 def get_hot_news():
     """Get hot news prediction analysis"""
     try:
-        hours_ahead = int(request.args.get('hours_ahead', 72))
-        min_impressions = int(request.args.get('min_impressions', 10))
+        hours_ahead = int(request.args.get('hours_ahead', 24))
+        min_impressions = int(request.args.get('min_impressions', 50))
         
         # We need to pass a reference date within the dataset period
         reference_date = time_manager.get_current_time()
@@ -402,7 +402,7 @@ def get_analytics_overview():
         
         # Gather multiple analytics in parallel
         category_trends = db.get_category_trends(start_date, end_date)
-        hot_news = db.get_hot_news_prediction(72, 10, time_manager.get_current_time())
+        hot_news = db.get_hot_news_prediction(24, 50, time_manager.get_current_time())
         performance_stats = db.get_query_performance_stats(24)
         
         # Calculate summary statistics
@@ -425,7 +425,7 @@ def get_analytics_overview():
                     "trending_news_count": len(hot_news)
                 }
             },
-            "category_trends": category_trends[:10],  # Top 10 categories
+            "category_trends": category_trends[:10],  # Top 10 category_days
             "hot_news": hot_news[:5],  # Top 5 trending
             "performance": performance_stats,
             "query_timestamp": datetime.now().replace(tzinfo=pytz.UTC).isoformat(),

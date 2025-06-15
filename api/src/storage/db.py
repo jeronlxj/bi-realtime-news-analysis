@@ -294,7 +294,7 @@ class DatabaseConnection:
             results = query.group_by(
                 News.category, 
                 func.date_trunc('day', ExposureLog.timestamp)
-            ).order_by(News.category, func.date_trunc('day', ExposureLog.timestamp)).all()
+            ).order_by((func.sum(ExposureLog.clicked) * 1.0 / func.count(func.distinct(ExposureLog.impression_id))).desc()).all()
             
             return [{
                 'category': result.category,

@@ -149,7 +149,8 @@ const Dashboard = () => {
 
   const renderCategoryTrends = () => {
     if (!analyticsData?.category_trends?.length) return null;
-
+    console.log('No. of categoryday fr start of dataset period until virtual time:', analyticsData.category_trends.length);
+    console.log('Category trends data:', analyticsData.category_trends);
     const categoryData = analyticsData.category_trends.reduce((acc, trend) => {
       if (!acc[trend.category]) {
         acc[trend.category] = { impressions: 0, clicks: 0 };
@@ -160,6 +161,7 @@ const Dashboard = () => {
     }, {});
 
     const categories = Object.keys(categoryData);
+    console.log('Categories:', categories);
     const impressions = categories.map(cat => categoryData[cat].impressions);
     const clicks = categories.map(cat => categoryData[cat].clicks);
 
