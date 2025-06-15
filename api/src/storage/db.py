@@ -116,7 +116,12 @@ class DatabaseConnection:
     
     def store_news_data(self, news_records: List[Dict]):
         """Store PENS news data in the database"""
+        # Create new session for this operation
+        Session = sessionmaker(bind=self.engine)
+        local_session = Session()
+        
         try:
+            news_objects = []
             for record in news_records:
                 news = News(
                     news_id=record['News ID'],
@@ -127,17 +132,24 @@ class DatabaseConnection:
                     title_entity=record['Title entity'],
                     entity_content=record['Entity content']
                 )
-                self.session.merge(news)  # Use merge to handle updates of existing records
-                # self.session.flush()  # Force SQL execution before commit
-            self.session.commit()
+                news_objects.append(news)
+            
+            # Perform individual merges in a transaction
+            for news in news_objects:
+                local_session.merge(news)
+                
+            # Commit all changes at once
+            local_session.commit()
             self.logger.info(f"Successfully stored {len(news_records)} news articles")
             
         except Exception as e:
             # Only rollback if the session is still active
-            if self.session.is_active:
-                self.session.rollback()
+            if local_session.is_active:
+                local_session.rollback()
             self.logger.error(f"Error storing news data: {e}")
             raise
+        finally:
+            local_session.close()
     
     def store_exposure_log(self, log: Dict):
         """Store a single exposure log in the database"""
