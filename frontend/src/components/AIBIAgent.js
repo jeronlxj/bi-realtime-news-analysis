@@ -15,7 +15,7 @@ const AIBIAgent = () => {
     "Which 3 news categories had the highest click-through rate?",
     "What are the trending headlines in entertainment news?",
     "Show me user engagement statistics by category",
-    "List the top 5 articles with the longest dwell time"
+    "List the headlines of the top 5 articles with the longest dwell time"
   ];
 
   const handleQuerySubmit = async (e) => {
