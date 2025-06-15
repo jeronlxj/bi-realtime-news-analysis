@@ -48,7 +48,7 @@ const NewsLifecycle = () => {
       setLoading(true);
       setError(null);
       const { startDate, endDate } = dateRange;
-      const data = await fetchNewsLifecycle(newsId, startDate, endDate);
+      const data = await fetchNewsLifecycle(newsId, startDate || null, endDate || null);
       setLifecycleData(data);
     } catch (err) {
       setError('Failed to load lifecycle data');

@@ -251,7 +251,7 @@ class DatabaseConnection:
         """Query the lifecycle of a single news article - shows popularity changes over time"""
         def _query(news_id, start_date, end_date):
             query = self.session.query(
-                func.date_trunc('hour', ExposureLog.timestamp),
+                func.date_trunc('hour', ExposureLog.timestamp).label('timestamp'),
                 func.count(func.distinct(ExposureLog.impression_id)).label('total_impressions'),
                 func.sum(ExposureLog.clicked).label('total_clicks'),
                 func.avg(ExposureLog.dwell_time).label('avg_dwell_time'),
@@ -272,8 +272,8 @@ class DatabaseConnection:
             
             return [{
                 'timestamp': result.timestamp.isoformat() if result.timestamp else None,
-                'total_impressions': result.total_impressions,
-                'total_clicks': result.total_clicks or 0,
+                'impressions': result.total_impressions,
+                'clicks': result.total_clicks or 0,
                 'avg_dwell_time': float(result.avg_dwell_time) if result.avg_dwell_time else 0,
                 'unique_users': result.unique_users,
                 'click_rate': (result.total_clicks or 0) / max(result.total_impressions, 1)
