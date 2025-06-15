@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { fetchNewsData } from '../services/api';
+import { fetchUserRecommendations } from '../services/api';
 import './Recommendations.css';
 
 const Recommendations = () => {
@@ -28,29 +28,23 @@ const Recommendations = () => {
       setLoading(true);
       setError(null);
       
-      // In a real implementation, this would use the recommendation API endpoint
-      // For now, we'll simulate recommendations by fetching some news articles
-      const data = await fetchNewsData();
+      // Fetch real recommendations from the API
+      const data = await fetchUserRecommendations(userId, limitCount);
       
-      // Ensure we have an array even if API response format changed
-      const newsArticles = Array.isArray(data) ? data : [];
-      
-      // Simulate personalization by randomly selecting and sorting articles
-      const randomSelectedNews = [...newsArticles]
-        .sort(() => 0.5 - Math.random())
-        .slice(0, limitCount)
-        .map(article => ({
-          ...article,
-          relevance_score: (Math.random() * 0.5 + 0.5).toFixed(2),
-          category_affinity: (Math.random() * 0.8 + 0.2).toFixed(2),
-          recency_bonus: (Math.random() * 0.3).toFixed(2),
-        }))
-        .sort((a, b) => parseFloat(b.relevance_score) - parseFloat(a.relevance_score));
+      // Process the recommendations to include the needed fields
+      // The backend provides: news_id, category, topic, headline, popularity, predicted_interest
+      const enhancedRecommendations = data.recommendations.map(article => ({
+        ...article,
+        relevance_score: article.predicted_interest || 0.5,
+        category_affinity: ((article.popularity || 0) / 100).toFixed(2),
+        recency_bonus: (Math.random() * 0.3).toFixed(2), // Keep this random since the API doesn't provide it
+        news_body_preview: article.headline // Use headline as preview since news body isn't in recommendations
+      }));
       
       setRecommendedNews({
-        user_id: userId,
-        recommendations: randomSelectedNews,
-        timestamp: new Date().toISOString(),
+        user_id: data.user_id,
+        recommendations: enhancedRecommendations,
+        timestamp: data.query_timestamp || new Date().toISOString()
       });
     } catch (err) {
       console.error('Error fetching recommendations:', err);
